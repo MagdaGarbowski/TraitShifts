@@ -6,6 +6,8 @@ TRY_SPCIS <- read.csv ("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS
 fungal_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/fungalroot_SPCIS.csv")
 groot_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/groot_SPCIS.csv")
 rootdepth_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/rootdepth_SPCIS.csv")
+duration_habit_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/duration_growthhabit_SPCIS.csv")
+
 SPCIS_names <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TNRS.csv")
 
 # ------------------------------- functions ---------------------------------------------
@@ -69,6 +71,8 @@ TRY_SPCIS_genera_avgs <- do.call(rbind, lapply(TRY_genus_df_splits, sum_stats_ge
 TRY_all <- rbind(TRY_SPCIS_trait_avgs, TRY_SPCIS_genera_avgs)
 TRY_all$X <- NULL
 TRY_all$source <- "TRY"
+TRY_all[c("mean", "sd")] <- apply(TRY_all[c("mean", "sd")], 2, function(x) round(x, 4))
+
 
 # ---------------------------------------------- fungal root  ---------------------------------------------
 # merge with SPCIS at genus-level since no species-level data are available
@@ -87,6 +91,36 @@ fungal_SPCIS_matched$n_obs <- NA
 fungal_SPCIS_matched$n_species <- NA
 fungal_all <- fungal_SPCIS_matched
 fungal_all$source <- "FungalRoot"
+
+# --------------------------------------- duration, growth habit  -----------------------------------------
+duration_habit_SPCIS$X <- NULL
+DH_SPCIS_matched <- merge(duration_habit_SPCIS, SPCIS_names_ss[c("Name_submitted", "Name_matched")], 
+                          by.x = c("AcceptedTaxonName", "Name_matched"),
+                          by.y = c("Name_submitted", "Name_matched"), all.y = TRUE)
+
+DH_SPCIS_matched <- DH_SPCIS_matched[c("Name_matched", "Duration", "Growth.Habit")]
+
+# drop duplicates 
+DH_SPCIS_matched <- DH_SPCIS_matched[!duplicated(DH_SPCIS_matched$Name_matched),]
+
+DH_SPCIS_long <- reshape(DH_SPCIS_matched,
+                         varying = c("Duration", "Growth.Habit"),
+                         idvar = "Name_matched",
+                         timevar = "TraitNameAbr", 
+                         v.names = "mean",
+                         times = c("Duration", "Growth.Habit"),
+                         direction = "long")
+
+colnames(DH_SPCIS_long)[1] <- "sps_try_match"
+                         
+DH_SPCIS_long$sd <- NA
+DH_SPCIS_long$n_obs <- NA
+DH_SPCIS_long$n_species <- NA
+DH_all <- DH_SPCIS_long
+DH_all$source <- "SPCIS_data"
+
+# remove attributes
+DH_all <- lapply(DH_all, unname)
 
 # ---------------------------------------------- groot  ---------------------------------------------------
 # species-level dataset 
@@ -111,12 +145,14 @@ groot_all <- rbind(groot_SPCIS, SPCIS_groot_genera_avgs)
 groot_all$n_obs <- NA
 groot_all$source <- "GRoot"
 
+groot_all[c("mean", "sd")] <- apply(groot_all[c("mean", "sd")], 2, function(x) round(x, 4))
+
 # ------------------------------- rooting depth  ---------------------------------------------
 # both species and genus level values in dataset 
 
 rootdepth_SPCIS$TraitNameAbr <- "rootingdepth_m"
 
-# get full species dataset for species-level means 
+# species-level means 
 rootdepth_SPCIS$g_s <- gsub(" ", "_", rootdepth_SPCIS$Name_matched)
 rootdepth_genus_sps <- data.frame(rootdepth_SPCIS[grep("_", rootdepth_SPCIS$g_s),])
 rootdepth_genus_sps$g_s <- NULL
@@ -128,7 +164,7 @@ rootdepth_SPCIS_splits <- split(rootdepth_genus_sps,
 SPCIS_rootdepth_avgs <- do.call(rbind, lapply(rootdepth_SPCIS_splits, sum_stats_sps, "Name_matched","TraitNameAbr", "Dr"))
 SPCIS_rootdepth_avgs$n_species <- 1
 
-# get genus-level dataset for genus-level summary stats  
+# genus-level summary stats  
 genus_sp <- as.data.frame(t(sapply(strsplit(SPCIS_rootdepth_avgs$sps_try_match, " "), "[")))
 colnames(genus_sp) <- c("Genus", "Species")
 SPCIS_depth_genus <- cbind(SPCIS_rootdepth_avgs, genus_sp)
@@ -142,9 +178,35 @@ SPCIS_depth_genera_avgs <- do.call(rbind, lapply(genus_df_splits, sum_stats_genu
 depth_all <- rbind(SPCIS_rootdepth_avgs, SPCIS_depth_genera_avgs)
 depth_all$source <- "RootDepth"
 
-# --------------------------- combine datasets ------------------------------------
+depth_all[c("mean", "sd")] <- apply(depth_all[c("mean", "sd")], 2, function(x) round(x, 4))
 
-traits_dat <- rbind(TRY_all, fungal_all, groot_all, depth_all)
 
-write.csv(traits_dat,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/traits_sumstats.csv" )
+# ---------------------- combine datasets (long format) -----------------------------
 
+traits_dat <- rbind(TRY_all, DH_all,fungal_all, groot_all, depth_all)
+
+# ---------------------- create wide format dataset ---------------------------------
+
+# get full SPCIS list for merging 
+SPCIS_species <- data.frame(Species_name = SPCIS_names$Name_matched)
+
+# get continuous traits into wide format 
+traits_cont <- traits_dat[c("sps_try_match", "TraitNameAbr", "mean")][!traits_dat$TraitNameAbr %in% c("Mycorrhizal.type", "Duration", "Growth.Habit"),]
+traits_cont$mean <- as.numeric(traits_cont$mean)
+traits_cont$mean <- round(traits_cont$mean, 4)
+
+traits_cont_wide <- reshape(traits_cont, idvar = "sps_try_match", timevar = "TraitNameAbr", direction = "wide")
+colnames(traits_cont_wide) <- gsub("mean.", "", colnames(traits_cont_wide))
+
+# get categorical traits into wide format
+traits_cat <- traits_dat[c("sps_try_match","TraitNameAbr", "mean")][traits_dat$TraitNameAbr %in% c("Mycorrhizal.type", "Duration", "Growth.Habit"),]
+traits_cat_wide <- reshape(traits_cat, idvar = "sps_try_match", timevar = "TraitNameAbr", direction = "wide")
+colnames(traits_cat_wide)[c(2,3,4)] <- c("Duration", "Growth.Habit", "Mycorrhizal.type") 
+
+# merge datasets 
+SPCIS_traits_wide <- merge(SPCIS_species, traits_cont_wide, by.x = "Species_name", by.y = "sps_try_match", all.x = TRUE)
+
+SPCIS_traits_wide <- merge( traits_cat_wide, SPCIS_traits_wide, by.x = "sps_try_match", by.y = "Species_name", all.x = TRUE)
+
+write.csv(traits_dat,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits_sumstats.csv" )
+write.csv(SPCIS_traits_wide,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits.csv" )

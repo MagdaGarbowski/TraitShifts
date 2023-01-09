@@ -72,6 +72,15 @@ spcis_names_prepped <- TNRS_data_prep(spcis_data, "AcceptedTaxonName")
 spcis_names_TNRS  <- TNRS(spcis_names_prepped,
                           sources = c("usda", "tropicos", "wcvp", "wfo"), mode = "resolve", matches = "best")
 
+# ----------------------------- SPCIS Duration and Growth.Habit  --------------------------------------
+
+# merge SPCIS names with TNRS names 
+spcis_names_TNRS_ss <- spcis_names_TNRS[c("Name_submitted", "Name_matched")]
+spcis_data_w_matched_names <- merge(spcis_data, spcis_names_TNRS_ss, by.x = "AcceptedTaxonName", "Name_submitted", all.x = TRUE)
+
+spcis_duration_habit <- spcis_data_w_matched_names[c("AcceptedTaxonName", "Name_matched", "Duration", "Growth.Habit")]
+spcis_duration_habit <- unique(spcis_duration_habit)
+
 # ------------------------------- fungal root data cleanup ---------------------------------------------
 fungalroot_data <- as.data.frame(fungalroot_data)
 fungalroot_prepped <- TNRS_data_prep(fungalroot_data, "Genus")
@@ -191,6 +200,7 @@ TRY_SpeciesNames_TNRS <- (TrySps_ls_2)
 write.csv(fungalroot_SPCIS, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/fungalroot_SPCIS.csv")
 write.csv(groot_data_SPCIS, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/groot_SPCIS.csv")
 write.csv(rootdepth_data_SPCIS, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/rootdepth_SPCIS.csv")
+write.csv(spcis_duration_habit, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/duration_growthhabit_SPCIS.csv")
 
 write.csv(TRY_ss, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_TraitsOnly_22398.csv")
 write.csv(TRY_SpeciesNames_TNRS,  "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_SpeciesName_TNRS_22398.csv")

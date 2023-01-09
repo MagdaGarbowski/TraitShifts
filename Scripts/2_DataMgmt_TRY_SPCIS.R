@@ -2,9 +2,6 @@
 # goal: merge cleaned and simplified TRY data with cleaned SPCIS data base on both AccSpeciesNames and SpeciesNames in TRY
 # resulting dataset: SPCIS_10272022_TRY_22398.csv - TRY traits for SPCIS species 
 
-library(stringr)
-library(ggplot2)
-
 # --------------------------------- data ------------------------------------------------------
 
 TRY_ss  <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_TraitsOnly_22398.csv")
