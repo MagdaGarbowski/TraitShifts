@@ -10,6 +10,17 @@ duration_habit_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_
 
 SPCIS_names <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TNRS.csv")
 
+# ----------------------------- individual edits of TNRS  ----------------------------------------
+
+SPCIS_names$Accepted_species <- ifelse(SPCIS_names$Name_submitted == "Eriogonum nudum", "Eriogonum nudum", 
+                                           ifelse(SPCIS_names$Name_submitted == "Viburnum nudum", "Viburnum nudum", SPCIS_names$Accepted_species))
+
+SPCIS_names$Accepted_name <- ifelse(SPCIS_names$Name_submitted == "Eriogonum nudum", "Eriogonum nudum", 
+                                        ifelse(SPCIS_names$Name_submitted == "Viburnum nudum", "Viburnum nudum", SPCIS_names$Accepted_name))
+
+SPCIS_names$Name_matched <- ifelse(SPCIS_names$Name_submitted == "Eriogonum nudum", "Eriogonum nudum", 
+                                    ifelse(SPCIS_names$Name_submitted == "Viburnum nudum", "Viburnum nudum", SPCIS_names$Name_matched))
+
 # ------------------------------- functions ---------------------------------------------
 sum_stats_sps <- function(df, species_col, trait_col, value){
   out <-  data.frame(sps_try_match = df[[species_col]][1],
@@ -112,7 +123,11 @@ DH_SPCIS_long <- reshape(DH_SPCIS_matched,
                          direction = "long")
 
 colnames(DH_SPCIS_long)[1] <- "sps_try_match"
-                         
+
+DH_SPCIS_long$mean <- ifelse(grepl(",", DH_SPCIS_long$mean), gsub(",.*", "", DH_SPCIS_long$mean), DH_SPCIS_long$mean)
+DH_SPCIS_long$mean <- gsub("Forb/herb", "Forb", DH_SPCIS_long$mean)
+DH_SPCIS_long$mean <- gsub("Subshrub", "Shrub", DH_SPCIS_long$mean)
+                   
 DH_SPCIS_long$sd <- NA
 DH_SPCIS_long$n_obs <- NA
 DH_SPCIS_long$n_species <- NA
@@ -121,7 +136,7 @@ DH_all$source <- "SPCIS_data"
 
 # remove attributes
 DH_all <- lapply(DH_all, unname)
-
+DH_all <- as.data.frame(DH_all)
 # ---------------------------------------------- groot  ---------------------------------------------------
 # species-level dataset 
 groot_SPCIS <- groot_SPCIS[c("genus_species", "traitName", "meanSpecies")]
@@ -206,7 +221,7 @@ colnames(traits_cat_wide)[c(2,3,4)] <- c("Duration", "Growth.Habit", "Mycorrhiza
 # merge datasets 
 SPCIS_traits_wide <- merge(SPCIS_species, traits_cont_wide, by.x = "Species_name", by.y = "sps_try_match", all.x = TRUE)
 
-SPCIS_traits_wide <- merge( traits_cat_wide, SPCIS_traits_wide, by.x = "sps_try_match", by.y = "Species_name", all.x = TRUE)
+SPCIS_traits_wide <- merge(traits_cat_wide, SPCIS_traits_wide, by.x = "sps_try_match", by.y = "Species_name", all.x = TRUE)
 
 write.csv(traits_dat,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits_sumstats.csv" )
 write.csv(SPCIS_traits_wide,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits.csv" )
