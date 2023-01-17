@@ -49,24 +49,39 @@ density_plot_function <- function(df,trait, x_min, x_max){
   return(plot_out)
 }
 
-height_gen <- density_plot_function(CWM_80_splits$height_gen, "Height-gen (m)", 0, 3)
-height_veg <- density_plot_function(CWM_80_splits$height_veg, "Height-veg (m)", 0, 5)
-LDMC <- density_plot_function(CWM_80_splits$LDMC, "LDMC (g g-1)", 0, 0.6)
-leaf_area <- density_plot_function(CWM_80_splits$leaf_area, "Leaf Area (mm2)", 0, 3000)
-leaf_N <- density_plot_function(CWM_80_splits$leafN, "leaf_N (mg/g)", 0, 40)
-leaf_P <- density_plot_function(CWM_80_splits$leafP, "leaf_P (mg/g)", 0, 4)
-seed_mass <- density_plot_function(CWM_80_splits$seed_mass, "seed_mass (mg)", 0, 10)
-SLA <- density_plot_function(CWM_80_splits$SLA, "SLA (mm2 mg-1)", 0, 50)
-SSD <- density_plot_function(CWM_80_splits$SSD, "SSD", 0, 1)
-
+height_veg <- density_plot_function(CWM_80_splits$heightveg_m, "Height-veg (m)", 0, 3)
+LDMC <- density_plot_function(CWM_80_splits$`LDMC_g/g`, "LDMC (g g-1)", 0, 0.6)
+leaf_area <- density_plot_function(CWM_80_splits$leafarea_mm2, "Leaf Area (mm2)", 0, 3000)
+leaf_N <- density_plot_function(CWM_80_splits$`leafN_mg/g`, "leaf_N (mg/g)", 0, 40)
+leaf_P <- density_plot_function(CWM_80_splits$`leafP_mg/g`, "leaf_P (mg/g)", 0, 4)
+seed_mass <- density_plot_function(CWM_80_splits$seedmass_mg, "seed_mass (mg)", 0, 10)
+SLA <- density_plot_function(CWM_80_splits$`SLA_mm2/mg`, "SLA (mm2 mg-1)", 0, 50)
+SSD <- density_plot_function(CWM_80_splits$`SSD_g/cm3`, "SSD", 0, 1)
+root_diam <- density_plot_function(CWM_80_splits$Mean_Root_diameter, "root_diam (mm)", 0, 1)
+RDMC <- density_plot_function(CWM_80_splits$Root_dry_matter_content, "RDMC", 0, 0.45)
+RMF <- density_plot_function(CWM_80_splits$Root_mass_fraction, "RMF", 0, 0.75)
+root_N <- density_plot_function(CWM_80_splits$Root_N_concentration, "root_N", 0, 20)
+root_P <- density_plot_function(CWM_80_splits$Root_P_concentration, "root_P", 0, 4)
+RTD <- density_plot_function(CWM_80_splits$Root_tissue_density, "RTD", 0, 0.75)
+root_depth_Groot <- density_plot_function(CWM_80_splits$Rooting_depth, "root_depth_GRoot", 0, 4)
+root_depth <- density_plot_function(CWM_80_splits$rootingdepth_m, "root_depth (m)", 0, 4)
+SRL <- density_plot_function(CWM_80_splits$Specific_root_length, "SRL", 0, 175)
 
 
 pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/traits_overall_1.pdf", width = 10, height = 6)
-grid.arrange(height_veg, leaf_area, SSD,seed_mass, ncol = 2)
+grid.arrange(height_veg, leaf_area, SSD, seed_mass, ncol = 2)
 dev.off()
 
 pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/traits_overall_2.pdf", width = 10, height = 6)
 grid.arrange(SLA, LDMC, leaf_N, leaf_P, ncol = 2)
+dev.off()
+
+pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/traits_overall_3.pdf", width = 10, height = 6)
+grid.arrange(SRL, RDMC,root_N, root_P,  ncol = 2)
+dev.off()
+
+pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/traits_overall_4.pdf", width = 10, height = 6)
+grid.arrange(root_depth, RMF, RTD, ncol = 2)
 dev.off()
 
 # ----------------------------------- ecoregion plots  -------------------------------------
@@ -94,14 +109,24 @@ density_eco_plot_function <- function(dat,trait, x_min, x_max){
   return(plots_print)
 }
 
-height_veg_eco <- density_eco_plot_function(CWM_80_splits$height_veg, "Height_veg (m)", 0, 15)
-LDMC_eco <- density_eco_plot_function(CWM_80_splits$LDMC, "LDMC (g g-1)", 0, 0.6)
-leaf_area_eco <- density_eco_plot_function(CWM_80_splits$leaf_area, "leaf_area (mm2)", 0, 3000)
-leafN_eco <- density_eco_plot_function(CWM_80_splits$leafN, "leaf_N (mg/g)", 0, 40)
-leafP_eco <- density_eco_plot_function(CWM_80_splits$leafP, "leaf_P (mg/g)", 0, 4)
-seed_mass_eco <- density_eco_plot_function(CWM_80_splits$seed_mass, "seed_mass (mg)", 0, 10)
-SLA_eco <- density_eco_plot_function(CWM_80_splits$SLA, "SLA (mm2 mg-1)", 0, 50)
-SSD_eco <- density_eco_plot_function(CWM_80_splits$SSD, "SSD", 0, 1)
+height_veg_eco <- density_eco_plot_function(CWM_80_splits$heightveg_m, "Height_veg (m)", 0, 15)
+LDMC_eco <- density_eco_plot_function(CWM_80_splits$`LDMC_g/g`, "LDMC (g g-1)", 0, 0.6)
+leaf_area_eco <- density_eco_plot_function(CWM_80_splits$leafarea_mm2, "leaf_area (mm2)", 0, 3000)
+leafN_eco <- density_eco_plot_function(CWM_80_splits$`leafN_mg/g`, "leaf_N (mg/g)", 0, 40)
+leafP_eco <- density_eco_plot_function(CWM_80_splits$`leafP_mg/g`, "leaf_P (mg/g)", 0, 4)
+seed_mass_eco <- density_eco_plot_function(CWM_80_splits$seedmass_mg, "seed_mass (mg)", 0, 10)
+SLA_eco <- density_eco_plot_function(CWM_80_splits$`SLA_mm2/mg`, "SLA (mm2 mg-1)", 0, 50)
+SSD_eco <- density_eco_plot_function(CWM_80_splits$`SSD_g/cm3`, "SSD", 0, 1)
+
+root_diam_eco <- density_eco_plot_function(CWM_80_splits$Mean_Root_diameter, "root_diam (mm)", 0, 1)
+RDMC_eco <- density_eco_plot_function(CWM_80_splits$Root_dry_matter_content, "RDMC", 0, 0.45)
+RMF_eco <- density_eco_plot_function(CWM_80_splits$Root_mass_fraction, "RMF", 0, 0.75)
+root_N_eco <- density_eco_plot_function(CWM_80_splits$Root_N_concentration, "root_N", 0, 20)
+root_P_eco <- density_eco_plot_function(CWM_80_splits$Root_P_concentration, "root_P", 0, 4)
+RTD_eco <- density_eco_plot_function(CWM_80_splits$Root_tissue_density, "RTD", 0, 0.75)
+root_depth_eco <- density_eco_plot_function(CWM_80_splits$rootingdepth_m, "root_depth (m)", 0, 4)
+SRL_eco <- density_eco_plot_function(CWM_80_splits$Specific_root_length, "SRL", 0, 200)
+
 
 pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/height_veg_eco.pdf", width = 10, height = 10)
 density_eco_plot_function(CWM_80_splits$height_veg, "Height_veg", 0, 8)
@@ -114,8 +139,6 @@ dev.off()
 pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/SLA_eco.pdf", width = 10, height = 10)
 density_eco_plot_function(CWM_80_splits$SLA, "SLA", 0, 50)
 dev.off()
-
-
 
 
 # ----------------------------------- which plots have >80 of several traits  -------------------------------------
@@ -170,6 +193,28 @@ bytrait_count_function <- function(df){
 # export this table 
 trait_counts_df <- do.call(rbind, lapply(cov_80_traits_df_ecosplits, bytrait_count_function))
            
+
+# ----------------------------------- traits by eco-region counts  -------------------------------------
+CWM_80_trait_splits <- split(CWM_80, list(CWM_80$Trait, CWM_80$EcoRegionLevelI), drop = TRUE)
+
+trait_by_eco_function <- function(df){
+  df_unique <- unique(df[c("Plot", "Trait", "EcoRegionLevelI", "Inv_level")])
+  agg_dat <- as.data.frame(aggregate(Plot ~ Inv_level, df_unique, length))
+  all_df <- data.frame(Inv_level = "all", 
+                       Plot = sum(agg_dat$Plot))
+  agg_dat_out <- rbind(agg_dat, all_df)
+  agg_dat_out$Plot <- as.numeric(agg_dat_out$Plot)
+  agg_dat_out$Trait <- df$Trait[1]
+  agg_dat_out$EcoRegionLevelI <- df$EcoRegionLevelI[1]
+  return(agg_dat_out)
+}
+
+
+trait_eco <- do.call(rbind, lapply(CWM_80_trait_splits, trait_by_eco_function))
+trait_eco_wide <- reshape(trait_eco, idvar = c("EcoRegionLevelI","Trait"), timevar = "Inv_level", direction = "wide")
+colnames(trait_eco_wide) <- gsub("Plot.", "", colnames(trait_eco_wide))
+trait_eco_wide <- trait_eco_wide[c("EcoRegionLevelI","Trait", "all", "low", "med", "high")]
+
 # work with deserts to try to get a multivariate plot
 #
 #

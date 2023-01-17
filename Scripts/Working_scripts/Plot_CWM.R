@@ -2,13 +2,15 @@
 # goal: get CWM for each plot by trait combo 
 
 library(data.table)
-library(ggplot2)
-library(gridExtra)
 
-dat <- fread("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022_wTRY.csv", 
+dat <- fread("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits.csv", 
              select = c("AcceptedTaxonName", "Plot", "Year", "NativeStatus", "PctCov_100", "rel_100", "TraitNameAbr", "mean"))
 
-dat_splits <- split(dat, list(dat$Plot), drop = TRUE)
+# drop categorical traits 
+dat_cont <- dat[!dat$TraitNameAbr %in% c("Duration", "Mycorrhizal.type"),]
+dat_cont$mean <- as.numeric(dat_cont$mean)
+
+dat_splits <- split(dat_cont, list(dat_cont$Plot), drop = TRUE)
 
 CWM_function <- function(df){
 

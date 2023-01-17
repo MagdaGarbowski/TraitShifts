@@ -1,30 +1,11 @@
 # Trait-Shifts 
 # goal: get dataset with plot-level trait coverage and plot level I, IN, N coverage 
 
-SPCIS_TRY <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_sumstats.csv")
-SPCIS_other <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/other_db_sumstats.csv")
+SPCIS_traits <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits_sumstats.csv")
 SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022.csv")
 
-# ---------------------- combine other with TRY  --------------------------------------
-# get full species list 
-SPCIS_all <- rbind(SPCIS_TRY, SPCIS_other)
-sps_list <- data.frame(species_matched = unique(SPCIS_all$sps_try_match))
-
-# TRY into wide format 
-SPCIS_TRY <- SPCIS_TRY[c("sps_try_match", "TraitNameAbr", "mean", "sd")]
-SPCIS_TRY_wide <- reshape(SPCIS_TRY, idvar = "sps_try_match", timevar = "TraitNameAbr", direction = "wide")
-SPCIS_TRY_merged <- merge(sps_list, SPCIS_TRY_wide, by.x = "species_matched", by.y = "sps_try_match", all.x = TRUE)
-
-# FUNGAL 
-fungal <- SPCIS_other[SPCIS_other$TraitNameAbr == "Mycorrhizal.type",][c("sps_try_match", "mean")]
-colnames(fungal)[2] <- "Mycorrhizal.type"
-
-SPCIS_TRY_fungal_merged <- merge(SPCIS_TRY_merged, fungal, by.x = "species_matched", by.y = "sps_try_match", all.x = TRUE)
-
-# GRoot 
-
-groot <- SPCIS_other[!SPCIS_other$TraitNameAbr %in% c("Mycorrhizal.type", "root_depth"),][c("sps_try_match", "mean", "TraitNameAbr")]
-
+SPCIS_traits$X <- NULL
+SPCIS$X <- NULL
 
 # ------------------------------- functions ---------------------------------------------
 # relative cover of species plot/year
@@ -68,6 +49,14 @@ coverage_function <- function(df){
   }
 }
 
+# ---------------------------------- subset trait data  -----------------------------------------------
+SPCIS_traits <- SPCIS_traits[SPCIS_traits$TraitNameAbr %in% c("Duration", "Fine_root_mass_leaf_mass_ratio",
+                                                              "heightveg_m", "LDMC_g/g", "leafarea_mm2", "leafN_mg/g",
+                                                              "leafP_mg/g", "Mean_Root_diameter", "Mycorrhizal.type",
+                                                              "Root_dry_matter_content","Root_mass_fraction", "Root_N_concentration",
+                                                              "Root_P_concentration", "Root_tissue_density","Rooting_depth","Specific_root_length",
+                                                              "rootingdepth_m", "seedmass_mg","SLA_mm2/mg","SSD_g/cm3"),]
+
 # -------------------------- simplify datasets and run through functions  ----------------------------
 
 # plot data 
@@ -85,8 +74,9 @@ spcis_data_relcov <- do.call(rbind, spcis_data_relcov_ls)
 #  get relcov of native vs. introduced 
 nat_int_df <- do.call(rbind, lapply(spcis_data_relcov_ls, nat_int_function))
 
-# merge SPCIS data with SPCIS_TRY data 
-spcis_data_w_try <- merge(spcis_data_relcov, SPCIS_TRY[c("sps_try_match", "TraitNameAbr", "mean")], 
+# merge SPCIS data with SPCIS_TRY data
+# this take >5 minutes 
+spcis_data_w_try <- merge(spcis_data_relcov, SPCIS_traits[c("sps_try_match", "TraitNameAbr", "mean")], 
                           by.x = "AcceptedTaxonName", by.y = "sps_try_match", all.x = TRUE)
 
 # split dataset by plot and trait 
@@ -103,4 +93,4 @@ coverage_out_2 <- merge(coverage_out, nat_int_df, by = c("Plot", "Zone", "Year")
 coverage_out_3 <- merge(coverage_out_2, plot_data, by = c("Plot", "Zone", "Year"), all.x = TRUE)
 
 write.csv(coverage_out_3, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TRY_coverage.csv")
-write.csv(spcis_data_w_try, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022_wTRY.csv")
+write.csv(spcis_data_w_try, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022_wtraits.csv")
