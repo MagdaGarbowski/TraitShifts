@@ -6,13 +6,13 @@
 
 TRY_ss  <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_TraitsOnly_22398.csv")
 spcis_data <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022.csv")
-spcis_list_TNRS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_SpeciesName_TNRS_22398.csv")
+TRY_SpeciesNames_list_TNRS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_SpeciesName_TNRS_22398.csv")
 TRY_AccSpeciesName_list_TNRS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_AccSpeciesName_TNRS_22398.csv")
 spcis_list_TNRS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TNRS.csv")
 
 # ----------------------------- subset TNRS dataframes  ----------------------------------------
 
-out_TNRS_dfs <- lapply(list(spcis_list_TNRS = spcis_list_TNRS,
+out_TNRS_dfs <- lapply(list(TRY_SpeciesNames_list_TNRS = TRY_SpeciesNames_list_TNRS,
                             TRY_AccSpeciesName_list_TNRS = TRY_AccSpeciesName_list_TNRS,
                             spcis_list_TNRS = spcis_list_TNRS),
                        function(x) {xx = x[c("ID", "Name_submitted","Accepted_name", "Accepted_species")]; return(xx)})
@@ -29,7 +29,7 @@ spcis_list_TNRS$Accepted_name <- ifelse(spcis_list_TNRS$Name_submitted == "Eriog
 
 # ------------------------------- merge datasets -------------------------------------------------
 # merge TRY simplified with TRY TNRS SpeciesNames
-TRY_ss_SpeciesName_merge <- merge(TRY_ss, spcis_list_TNRS, 
+TRY_ss_SpeciesName_merge <- merge(TRY_ss, TRY_SpeciesNames_list_TNRS, 
                                   by.x = "SpeciesName", by.y = "Name_submitted", all.x = TRUE)
 
 # now merge with TRY TNRS AccSpeciesNames

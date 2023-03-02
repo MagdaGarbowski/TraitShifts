@@ -41,6 +41,17 @@ sum_stats_genus <- function(df, species_col, trait_col, value, n_obs){
   return(out)
 }
 
+max_root_function <- function(df, species_col, value){
+  out <- data.frame(sps_try_match = df[[species_col]][1],
+                    TraitNameAbr = "max_rooting_depth_m", 
+                    mean = max(df[[value]], na.rm = TRUE), 
+                    sd = NA,
+                    n_obs = nrow(df),
+                    n_species = NA)
+  return(out)
+}
+
+
 # ---------------------------------------------- TRY  -------------------------------------------------------
 # select out continuous traits 
 TRY_SPCIS_continous <- TRY_SPCIS[TRY_SPCIS$TraitID %in% c("3106", "26", "3116", "47", "4", "3114", "3117", "14", "3115", "15",
@@ -139,10 +150,9 @@ DH_all <- lapply(DH_all, unname)
 DH_all <- as.data.frame(DH_all)
 # ---------------------------------------------- groot  ---------------------------------------------------
 # species-level dataset 
-groot_SPCIS <- groot_SPCIS[c("genus_species", "traitName", "meanSpecies")]
-colnames(groot_SPCIS) <- c("sps_try_match", "TraitNameAbr", "mean")
+groot_SPCIS <- groot_SPCIS[c("genus_species", "traitName", "meanSpecies", "entriesStudySite")]
+colnames(groot_SPCIS) <- c("sps_try_match", "TraitNameAbr", "mean", "n_obs")
 groot_SPCIS$sd <- NA
-groot_SPCIS$n_obs <- NA
 groot_SPCIS$n_species <- 1
 
 # get genus-level estimates 
@@ -157,7 +167,6 @@ SPCIS_groot_genera_avgs <- do.call(rbind, lapply(groot_genus_df_splits, sum_stat
 
 # full SPCIS_TRY dataset 
 groot_all <- rbind(groot_SPCIS, SPCIS_groot_genera_avgs)
-groot_all$n_obs <- NA
 groot_all$source <- "GRoot"
 
 groot_all[c("mean", "sd")] <- apply(groot_all[c("mean", "sd")], 2, function(x) round(x, 4))
@@ -176,22 +185,25 @@ rootdepth_genus_sps$g_s <- NULL
 rootdepth_SPCIS_splits <- split(rootdepth_genus_sps, 
                                 list(rootdepth_genus_sps$Name_matched), drop = TRUE)
 
-SPCIS_rootdepth_avgs <- do.call(rbind, lapply(rootdepth_SPCIS_splits, sum_stats_sps, "Name_matched","TraitNameAbr", "Dr"))
-SPCIS_rootdepth_avgs$n_species <- 1
+SPCIS_rootdepth_max <- do.call(rbind, lapply(rootdepth_SPCIS_splits, max_root_function, "Name_matched", "Dr"))
+SPCIS_rootdepth_max$mean <- gsub(Inf, NA, SPCIS_rootdepth_max$mean)
 
 # genus-level summary stats  
-genus_sp <- as.data.frame(t(sapply(strsplit(SPCIS_rootdepth_avgs$sps_try_match, " "), "[")))
+genus_sp <- as.data.frame(t(sapply(strsplit(SPCIS_rootdepth_max$sps_try_match, " "), "[")))
 colnames(genus_sp) <- c("Genus", "Species")
-SPCIS_depth_genus <- cbind(SPCIS_rootdepth_avgs, genus_sp)
+SPCIS_depth_genus <- cbind(SPCIS_rootdepth_max, genus_sp)
 genus_df <- SPCIS_depth_genus[c("Genus", "TraitNameAbr", "mean", "n_obs")]
+genus_df$mean <- as.numeric(genus_df$mean)
 
 # split dataset for summary stats 
 genus_df_splits <- split(genus_df, list(genus_df$Genus), drop = TRUE)
 SPCIS_depth_genera_avgs <- do.call(rbind, lapply(genus_df_splits, sum_stats_genus, "Genus", "TraitNameAbr", "mean", "n_obs"))
 
 # full rooting depth dataset 
-depth_all <- rbind(SPCIS_rootdepth_avgs, SPCIS_depth_genera_avgs)
+depth_all <- rbind(SPCIS_rootdepth_max, SPCIS_depth_genera_avgs)
 depth_all$source <- "RootDepth"
+
+depth_all[c("mean", "sd")] <- apply(depth_all[c("mean", "sd")], 2, as.numeric)
 
 depth_all[c("mean", "sd")] <- apply(depth_all[c("mean", "sd")], 2, function(x) round(x, 4))
 
@@ -199,6 +211,7 @@ depth_all[c("mean", "sd")] <- apply(depth_all[c("mean", "sd")], 2, function(x) r
 # ---------------------- combine datasets (long format) -----------------------------
 
 traits_dat <- rbind(TRY_all, DH_all,fungal_all, groot_all, depth_all)
+traits_dat <- traits_dat[!duplicated(traits_dat),]
 
 # ---------------------- create wide format dataset ---------------------------------
 
@@ -220,8 +233,10 @@ colnames(traits_cat_wide)[c(2,3,4)] <- c("Duration", "Growth.Habit", "Mycorrhiza
 
 # merge datasets 
 SPCIS_traits_wide <- merge(SPCIS_species, traits_cont_wide, by.x = "Species_name", by.y = "sps_try_match", all.x = TRUE)
-
 SPCIS_traits_wide <- merge(traits_cat_wide, SPCIS_traits_wide, by.x = "sps_try_match", by.y = "Species_name", all.x = TRUE)
+
+# drop duplicates 
+SPCIS_traits_wide <- SPCIS_traits_wide[!duplicated(SPCIS_traits_wide),]
 
 write.csv(traits_dat,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits_sumstats.csv" )
 write.csv(SPCIS_traits_wide,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits.csv" )
