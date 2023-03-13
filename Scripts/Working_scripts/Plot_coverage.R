@@ -61,12 +61,12 @@ coverage_function <- function(df){
 }
 
 # ---------------------------------- subset trait data  -----------------------------------------------
-SPCIS_traits <- SPCIS_traits[SPCIS_traits$TraitNameAbr %in% c("Duration","Growth.Habit", "Fine_root_mass_leaf_mass_ratio",
+SPCIS_traits <- SPCIS_traits[SPCIS_traits$TraitNameAbr %in% c("Duration", "Growth.Habit", "Fine_root_mass_leaf_mass_ratio",
                                                               "heightveg_m", "LDMC_g/g", "leafarea_mm2", "leafN_mg/g",
                                                               "leafP_mg/g", "Mean_Root_diameter", "Mycorrhizal.type",
                                                               "Root_dry_matter_content","Root_mass_fraction", "Root_N_concentration",
                                                               "Root_P_concentration", "Root_tissue_density","Rooting_depth","Specific_root_length",
-                                                              "max_rooting_depth_m", "seedmass_mg","SLA_mm2/mg","SSD_g/cm3"),]
+                                                              "max_rooting_depth_m","mean_rooting_depth_m", "seedmass_mg","SLA_mm2/mg","SSD_g/cm3"),]
 
 # -------------------------- simplify datasets and run through functions  ----------------------------
 
@@ -97,7 +97,8 @@ spcis_data_w_try <- merge(spcis_data_relcov, SPCIS_traits[c("sps_try_match", "Tr
 spcis_data_w_try_splits <- split(spcis_data_w_try, 
                                  list(spcis_data_w_try$Plot, 
                                       spcis_data_w_try$TraitNameAbr), drop = TRUE)
-# get trait coverage by plot 
+
+# get trait coverage by plot (>1 hour!)
 coverage_out_ls <- lapply(spcis_data_w_try_splits, coverage_function)
 coverage_out <- do.call(rbind, coverage_out_ls)
 
