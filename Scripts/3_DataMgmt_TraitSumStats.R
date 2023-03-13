@@ -22,12 +22,19 @@ SPCIS_names$Name_matched <- ifelse(SPCIS_names$Name_submitted == "Eriogonum nudu
                                     ifelse(SPCIS_names$Name_submitted == "Viburnum nudum", "Viburnum nudum", SPCIS_names$Name_matched))
 
 # ------------------------------- functions ---------------------------------------------
+sum_stats_study <- function(df){
+  StdValue = mean(df$StdValue, na.rm = TRUE)
+  out <- cbind(data.frame(df[1,c("SpeciesName", "AccSpeciesName", "TraitID", "TraitName", "UnitName", "DatasetID", "Dataset", "spcis_try_match", "TraitNameAbr")]),StdValue)
+  return(out)
+}
+
+
 sum_stats_sps <- function(df, species_col, trait_col, value){
   out <-  data.frame(sps_try_match = df[[species_col]][1],
                      TraitNameAbr = df[[trait_col]][1], 
                      mean = mean(df[[value]], na.rm = TRUE), 
                      sd = sd(df[[value]], na.rm = TRUE), 
-                     n_obs = nrow(df))
+                     n_studies = nrow(df))
   return(out)
 }
 
@@ -36,7 +43,7 @@ sum_stats_genus <- function(df, species_col, trait_col, value, n_obs){
                      TraitNameAbr = df[[trait_col]][1], 
                      mean = mean(df[[value]], na.rm = TRUE), 
                      sd = sd(df[[value]], na.rm = TRUE), 
-                     n_obs = sum(df[[n_obs]], na.rm = TRUE),
+                     n_studies = sum(df[[n_obs]], na.rm = TRUE),
                      n_species = nrow(df))
   return(out)
 }
@@ -46,7 +53,7 @@ max_root_function <- function(df, species_col, value){
                     TraitNameAbr = "max_rooting_depth_m", 
                     mean = max(df[[value]], na.rm = TRUE), 
                     sd = NA,
-                    n_obs = nrow(df),
+                    n_studies = nrow(df),
                     n_species = NA)
   return(out)
 }
@@ -68,26 +75,37 @@ TRY_SPCIS_continous$TraitNameAbr <- ifelse(TRY_SPCIS_continous$TraitID %in% c(  
                                                                ifelse(TRY_SPCIS_continous$TraitID == "26", "seedmass_mg", 
                                                                       ifelse(TRY_SPCIS_continous$TraitID == "14", "leafN_mg/g",
                                                                              ifelse(TRY_SPCIS_continous$TraitID == "15", "leafP_mg/g",
-                                                                                    ifelse(TRY_SPCIS_continous$TraitID == "47", "LDMC_g/g",
+                                                                                    ifelse(TRY_SPCIS_continous$TraitID == "47", "LDMC_g/g", 
                                                                                            ifelse(TRY_SPCIS_continous$TraitID == "4", "SSD_g/cm3", TRY_SPCIS_continous$TraitName)))))))))
+
+# First get study level averages 
+TRY_sps_study_trait_splits <- split(TRY_SPCIS_continous, 
+                                    list(TRY_SPCIS_continous$spcis_try_match, 
+                                         TRY_SPCIS_continous$TraitNameAbr, 
+                                         TRY_SPCIS_continous$DatasetID), drop = TRUE)
+
+TRY_SPCIS_continous_study <- do.call(rbind, lapply(TRY_sps_study_trait_splits, sum_stats_study))
+                                                                               
 # TRY - species-level summary statistics 
 # split dataset for summary stats 
-TRY_sps_trait_splits <- split(TRY_SPCIS_continous, 
-                              list(TRY_SPCIS_continous$spcis_try_match, 
-                                   TRY_SPCIS_continous$TraitNameAbr), drop = TRUE)
+TRY_sps_trait_splits <- split(TRY_SPCIS_continous_study, 
+                              list(TRY_SPCIS_continous_study$spcis_try_match, 
+                                   TRY_SPCIS_continous_study$TraitNameAbr), drop = TRUE)
 
 TRY_SPCIS_trait_avgs <- do.call(rbind, lapply(TRY_sps_trait_splits, sum_stats_sps, "spcis_try_match", "TraitNameAbr", "StdValue"))
 TRY_SPCIS_trait_avgs$n_species <- 1
 
 # TRY - genus-level summary statistics 
 TRY_genus_sp <- as.data.frame(t(sapply(strsplit(TRY_SPCIS_trait_avgs$sps_try_match, " "), "[")))
+TRY_genus_sp <- t(sapply(strsplit(TRY_SPCIS_trait_avgs$sps_try_match, " "), function(x) rbind(x[1:2])))
+
 colnames(TRY_genus_sp) <- c("Genus", "Species")
 TRY_SPCIS_trait_avgs_genus <- cbind(TRY_SPCIS_trait_avgs, TRY_genus_sp)
-TRY_genus_df <- TRY_SPCIS_trait_avgs_genus[c("Genus","TraitNameAbr", "mean", "n_obs")]
+TRY_genus_df <- TRY_SPCIS_trait_avgs_genus[c("Genus","TraitNameAbr", "mean", "n_studies")]
 
 # split genus-level dataset for summary stats 
 TRY_genus_df_splits <- split(TRY_genus_df, list(TRY_genus_df$Genus, TRY_genus_df$TraitNameAbr), drop = TRUE)
-TRY_SPCIS_genera_avgs <- do.call(rbind, lapply(TRY_genus_df_splits, sum_stats_genus, "Genus", "TraitNameAbr", "mean", "n_obs"))
+TRY_SPCIS_genera_avgs <- do.call(rbind, lapply(TRY_genus_df_splits, sum_stats_genus, "Genus", "TraitNameAbr", "mean", "n_studies"))
 
 # full SPCIS_TRY dataset 
 TRY_all <- rbind(TRY_SPCIS_trait_avgs, TRY_SPCIS_genera_avgs)
@@ -109,7 +127,7 @@ fungal_SPCIS_matched$TraitNameAbr <- "Mycorrhizal.type"
 
 # add columns for rbind of datasets 
 fungal_SPCIS_matched$sd <- NA
-fungal_SPCIS_matched$n_obs <- NA
+fungal_SPCIS_matched$n_studies <- NA
 fungal_SPCIS_matched$n_species <- NA
 fungal_all <- fungal_SPCIS_matched
 fungal_all$source <- "FungalRoot"
@@ -140,7 +158,7 @@ DH_SPCIS_long$mean <- gsub("Forb/herb", "Forb", DH_SPCIS_long$mean)
 DH_SPCIS_long$mean <- gsub("Subshrub", "Shrub", DH_SPCIS_long$mean)
                    
 DH_SPCIS_long$sd <- NA
-DH_SPCIS_long$n_obs <- NA
+DH_SPCIS_long$n_studies <- NA
 DH_SPCIS_long$n_species <- NA
 DH_all <- DH_SPCIS_long
 DH_all$source <- "SPCIS_data"
@@ -151,7 +169,7 @@ DH_all <- as.data.frame(DH_all)
 # ---------------------------------------------- groot  ---------------------------------------------------
 # species-level dataset 
 groot_SPCIS <- groot_SPCIS[c("genus_species", "traitName", "meanSpecies", "entriesStudySite")]
-colnames(groot_SPCIS) <- c("sps_try_match", "TraitNameAbr", "mean", "n_obs")
+colnames(groot_SPCIS) <- c("sps_try_match", "TraitNameAbr", "mean", "n_studies")
 groot_SPCIS$sd <- NA
 groot_SPCIS$n_species <- 1
 
@@ -159,11 +177,11 @@ groot_SPCIS$n_species <- 1
 groot_genus_sp <- as.data.frame(t(sapply(strsplit(groot_SPCIS$sps_try_match, " "), "[")))
 colnames(groot_genus_sp) <- c("Genus", "Species")
 SPCIS_groot_genus <- cbind(groot_SPCIS, groot_genus_sp)
-groot_genus_df <- SPCIS_groot_genus[c("Genus","TraitNameAbr", "mean", "n_obs")]
+groot_genus_df <- SPCIS_groot_genus[c("Genus","TraitNameAbr", "mean", "n_studies")]
 
 # split dataset for summary stats (i.e., genus-level estimates)
 groot_genus_df_splits <- split(groot_genus_df, list(groot_genus_df$Genus, groot_genus_df$TraitNameAbr), drop = TRUE)
-SPCIS_groot_genera_avgs <- do.call(rbind, lapply(groot_genus_df_splits, sum_stats_genus, "Genus","TraitNameAbr", "mean", "n_obs"))
+SPCIS_groot_genera_avgs <- do.call(rbind, lapply(groot_genus_df_splits, sum_stats_genus, "Genus","TraitNameAbr", "mean", "n_studies"))
 
 # full SPCIS_TRY dataset 
 groot_all <- rbind(groot_SPCIS, SPCIS_groot_genera_avgs)
@@ -192,12 +210,12 @@ SPCIS_rootdepth_max$mean <- gsub(Inf, NA, SPCIS_rootdepth_max$mean)
 genus_sp <- as.data.frame(t(sapply(strsplit(SPCIS_rootdepth_max$sps_try_match, " "), "[")))
 colnames(genus_sp) <- c("Genus", "Species")
 SPCIS_depth_genus <- cbind(SPCIS_rootdepth_max, genus_sp)
-genus_df <- SPCIS_depth_genus[c("Genus", "TraitNameAbr", "mean", "n_obs")]
+genus_df <- SPCIS_depth_genus[c("Genus", "TraitNameAbr", "mean", "n_studies")]
 genus_df$mean <- as.numeric(genus_df$mean)
 
 # split dataset for summary stats 
 genus_df_splits <- split(genus_df, list(genus_df$Genus), drop = TRUE)
-SPCIS_depth_genera_avgs <- do.call(rbind, lapply(genus_df_splits, sum_stats_genus, "Genus", "TraitNameAbr", "mean", "n_obs"))
+SPCIS_depth_genera_avgs <- do.call(rbind, lapply(genus_df_splits, sum_stats_genus, "Genus", "TraitNameAbr", "mean", "n_studies"))
 
 # full rooting depth dataset 
 depth_all <- rbind(SPCIS_rootdepth_max, SPCIS_depth_genera_avgs)

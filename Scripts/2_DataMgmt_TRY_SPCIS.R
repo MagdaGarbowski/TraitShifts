@@ -10,12 +10,29 @@ TRY_SpeciesNames_list_TNRS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Gene
 TRY_AccSpeciesName_list_TNRS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/TRY_AccSpeciesName_TNRS_22398.csv")
 spcis_list_TNRS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TNRS.csv")
 
+spcis_list_TNRS$Name_matched <- spcis_list_TNRS$Name_submitted
+
+# ------------------------- use usda names when available  -------------------------------------
+# split by name matched 
+TRY_SpeciesNames_list_TNRS_splits <- split(TRY_SpeciesNames_list_TNRS, TRY_SpeciesNames_list_TNRS$Name_matched)
+TRY_AccSpeciesName_list_TNRS_splits <- split(TRY_AccSpeciesName_list_TNRS, TRY_AccSpeciesName_list_TNRS$Name_matched)
+
+source_function <- function(df){
+  if(any(grepl("usda", df$Source))){
+    return(df[df$Source == "usda",])
+  }
+  else(return(df))
+}
+
+TRY_SpeciesNames_list_TNRS_out <- do.call(rbind, lapply(TRY_SpeciesNames_list_TNRS_splits, source_function))
+TRY_AccSpeciesName_list_TNRS_out <- do.call(rbind, lapply(TRY_AccSpeciesName_list_TNRS_splits, source_function))
+
 # ----------------------------- subset TNRS dataframes  ----------------------------------------
 
-out_TNRS_dfs <- lapply(list(TRY_SpeciesNames_list_TNRS = TRY_SpeciesNames_list_TNRS,
-                            TRY_AccSpeciesName_list_TNRS = TRY_AccSpeciesName_list_TNRS,
+out_TNRS_dfs <- lapply(list(TRY_SpeciesNames_list_TNRS = TRY_SpeciesNames_list_TNRS_out,
+                            TRY_AccSpeciesName_list_TNRS = TRY_AccSpeciesName_list_TNRS_out,
                             spcis_list_TNRS = spcis_list_TNRS),
-                       function(x) {xx = x[c("ID", "Name_submitted","Accepted_name", "Accepted_species")]; return(xx)})
+                       function(x) {xx = x[c("ID", "Name_submitted", "Name_matched","Accepted_name", "Accepted_species")]; return(xx)})
 
 list2env(out_TNRS_dfs, .GlobalEnv)
 
@@ -30,14 +47,14 @@ spcis_list_TNRS$Accepted_name <- ifelse(spcis_list_TNRS$Name_submitted == "Eriog
 # ------------------------------- merge datasets -------------------------------------------------
 # merge TRY simplified with TRY TNRS SpeciesNames
 TRY_ss_SpeciesName_merge <- merge(TRY_ss, TRY_SpeciesNames_list_TNRS, 
-                                  by.x = "SpeciesName", by.y = "Name_submitted", all.x = TRUE)
+                                  by.x = "SpeciesName", by.y = "Name_matched", all.x = TRUE)
 
 # now merge with TRY TNRS AccSpeciesNames
 TRY_ss_SpeciesName_AccName_merge <- merge(TRY_ss_SpeciesName_merge, TRY_AccSpeciesName_list_TNRS, 
-                                          by.x = "AccSpeciesName", by.y = "Name_submitted", all.x = TRUE)
+                                          by.x = "AccSpeciesName", by.y = "Name_matched", all.x = TRUE)
 # subset relevant columns
 TRY_ss_SpeciesName_AccName <- TRY_ss_SpeciesName_AccName_merge[c("SpeciesName","AccSpeciesName",  "TraitID", "TraitName", "OrigValueStr", "StdValue", "UnitName",
-                                                                 "ObservationID", "ObsDataID", "Accepted_species.x", "Accepted_species.y")]
+                                                                 "ObservationID", "ObsDataID", "Accepted_species.x", "Accepted_species.y", "DatasetID", "Dataset")]
 # rename "Accepted_species" columns 
 colnames(TRY_ss_SpeciesName_AccName)[10:11] <- c("Accepted_species.species",  "Accepted_species.Acc")
 
@@ -70,7 +87,7 @@ TRY_SPCIS_list <- split(TRY_SPCIS_unique, rownames(TRY_SPCIS_unique))
 TRY_SPCIS_list_out <- do.call(rbind, lapply(TRY_SPCIS_list, select_function))
 
 # merge TRY data with SPCIS matched names dataset 
-TRY_SPCIS_df <- merge(TRY_SPCIS[,c(1:9)], TRY_SPCIS_list_out[,c(1,2,5)], by = c("SpeciesName", "AccSpeciesName"), all.x = TRUE)
+TRY_SPCIS_df <- merge(TRY_SPCIS[,c(1:9,12,13)], TRY_SPCIS_list_out[,c(1,2,5)], by = c("SpeciesName", "AccSpeciesName"), all.x = TRUE)
 
 # -------------------------- write SPCIS_TRY dataset   -------------------------
 

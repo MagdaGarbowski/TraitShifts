@@ -21,7 +21,7 @@ library(stringr)
 # --------------------------------- data ------------------------------------------------------
 
 TRY_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/TRY_22398.txt", 
-                  select = c("SpeciesName", "AccSpeciesName", "AccSpeciesID", "ObservationID",
+                  select = c("SpeciesName", "AccSpeciesName", "AccSpeciesID", "ObservationID", "DatasetID", "Dataset",
                              "ObsDataID","TraitID", "TraitName", "OrigValueStr", "StdValue", "UnitName", "ErrorRisk"), quote = "")
 
 fungalroot_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/fungal_root.csv") # tab three of full database (nph16569-sup-0002-tabless1-s4.xlsx)
@@ -29,7 +29,7 @@ fungalroot_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/fungal_root.c
 groot_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/GRooTAggregateSpeciesVersion.csv")
 
 rootdepth_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/rooting_depth.csv", 
-                        select = c("ID", "Species", "Dr"))
+                        select = c("ID", "Species", "Dr", "Reference"))
 
 spcis_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/FULLDatabase_10272022.csv")
 
@@ -126,7 +126,13 @@ rootdepth_data_prepped <- TNRS_data_prep(rootdepth_data, "Species")
 
 # run through TNRS 
 # takes about 2 minutes 
-rootdepth_names_TNRS <- TNRS(rootdepth_data_prepped, sources = c("usda", "tropicos", "wcvp", "wfo"), mode = "resolve", matches = "best")
+rootdepth_names_TNRS_1 <- TNRS(rootdepth_data_prepped[1:500,], sources = c("usda", "tropicos", "wcvp", "wfo"), mode = "resolve", matches = "best")
+rootdepth_names_TNRS_2 <- TNRS(rootdepth_data_prepped[501:1000,], sources = c("usda", "tropicos", "wcvp", "wfo"), mode = "resolve", matches = "best")
+rootdepth_names_TNRS_3 <- TNRS(rootdepth_data_prepped[1001:1500,], sources = c("usda", "tropicos", "wcvp", "wfo"), mode = "resolve", matches = "best")
+rootdepth_names_TNRS_4 <- TNRS(rootdepth_data_prepped[1501:2000,], sources = c("usda", "tropicos", "wcvp", "wfo"), mode = "resolve", matches = "best")
+rootdepth_names_TNRS_5 <- TNRS(rootdepth_data_prepped[2001:2889,], sources = c("usda", "tropicos", "wcvp", "wfo"), mode = "resolve", matches = "best")
+
+rootdepth_names_TNRS <- rbind(rootdepth_names_TNRS_1, rootdepth_names_TNRS_2, rootdepth_names_TNRS_3, rootdepth_names_TNRS_4, rootdepth_names_TNRS_5)
 
 # find mismatchs 
 # do not drop these mismatches - most look like mismatches in spelling 
