@@ -7,6 +7,8 @@ fungal_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/fun
 groot_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/groot_SPCIS.csv")
 rootdepth_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/rootdepth_SPCIS.csv")
 duration_habit_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/duration_growthhabit_SPCIS.csv")
+literature_data_figures <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Data/TShifts_abundantsps_values_from_figures.csv")
+literature_data_tables <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Data/TShifts_abundantsps_values_from_tables.csv")
 
 SPCIS_names <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TNRS.csv")
 
@@ -28,6 +30,12 @@ sum_stats_study <- function(df){
   return(out)
 }
 
+sum_stats_study_2 <- function(df, cols){
+  mean = mean(df$mean, na.rm = TRUE)
+  n_obs = nrow(df)
+  out <- cbind(data.frame(df[1, cols]), mean, n_obs)
+  return(out)
+}
 
 sum_stats_sps <- function(df, species_col, trait_col, value){
   out <-  data.frame(sps_try_match = df[[species_col]][1],
@@ -48,18 +56,65 @@ sum_stats_genus <- function(df, species_col, trait_col, value, n_obs){
   return(out)
 }
 
+groot_weighted_avg <- function(df){
+  total_studies <- sum(df$n_studies)
+  df$weighted_mean <- df$mean * (df$n_studies/total_studies)
+  overall_mean <- sum(df$weighted_mean)
+  out <- data.frame(sps_try_match = df$sps_try_match[1],
+                    TraitNameAbr = df$TraitNameAbr[1],
+                    mean = overall_mean,
+                    n_studies = total_studies,
+                    n_species = 1,
+                    sd = NA)
+  return(out)
+}
+
 max_root_function <- function(df, species_col, value){
   out <- data.frame(sps_try_match = df[[species_col]][1],
                     TraitNameAbr = "max_rooting_depth_m", 
                     mean = max(df[[value]], na.rm = TRUE), 
                     sd = NA,
                     n_studies = nrow(df),
-                    n_species = NA)
+                    n_species = 1)
   return(out)
 }
 
+mean_root_depth_function <- function(df){
+  out <- data.frame(sps_try_match = df$sps_try_match[1],
+                    TraitNameAbr = "mean_rooting_depth_m", 
+                    mean = mean(df$mean, na.rm = TRUE),
+                    sd = sd(df$mean, na.rm = TRUE), 
+                    n_studies = nrow(df),
+                    n_species = 1)
+  return(out)
+}
+
+# -------------------------- literature data  ---------------------------------------
+literature_data_tables <- literature_data_tables[c("species", "TraitNameAbr", "mean", "reference")]
+literature_data_figures <- literature_data_figures[c("species", "TraitNameAbr", "mean", "reference")]
+
+literature_data_all <- rbind(literature_data_tables, literature_data_figures)
+literature_data_all_splits <- split(literature_data_all, list(literature_data_all$TraitNameAbr, 
+                                                              literature_data_all$species,
+                                                              literature_data_all$reference), drop = TRUE)
+
+literature_study <- do.call(rbind, lapply(literature_data_all_splits, sum_stats_study_2, c("species", "TraitNameAbr", "reference")))
+
+#### These values need to be integrated with TRY, GRoot, Rooting_depth, and then overall means recalculated
+#### Subset literature study by "appropriate" traits, bind, get averages, combine datasets 
+
+TRY_lit <- literature_study[literature_study$TraitNameAbr %in% c("heightveg_m","LDMC_g/g","leafN_mg/g","leafP_mg/g","seedmass_mg", "SLA_mm2/mg","SSD_g/cm3"),]
+root_lit <- literature_study[literature_study$TraitNameAbr %in% c("Mean_Root_diameter","Root_N_concentration", "Root_tissue_density", "Specific_root_length"),]
+depth_lit <- literature_study[literature_study$TraitNameAbr %in% c("max_rooting_depth_m"),]
+
+# get averages for root_lit to match groot 
+root_lit_splits <- split(root_lit, list(root_lit$species, root_lit$TraitNameAbr), drop = TRUE)
+root_lit_avg <- do.call(rbind, lapply(root_lit_splits, sum_stats_sps, "species", "TraitNameAbr", "mean"))
 
 # ---------------------------------------------- TRY  -------------------------------------------------------
+# make columns match other datasets 
+colnames(TRY_lit) <- c("spcis_try_match", "TraitNameAbr","Dataset", "StdValue")
+
 # select out continuous traits 
 TRY_SPCIS_continous <- TRY_SPCIS[TRY_SPCIS$TraitID %in% c("3106", "26", "3116", "47", "4", "3114", "3117", "14", "3115", "15",
                                                           "3113", "3110", "3111", "3107", "3112", "3108", "3109", "3086"),]
@@ -85,12 +140,16 @@ TRY_sps_study_trait_splits <- split(TRY_SPCIS_continous,
                                          TRY_SPCIS_continous$DatasetID), drop = TRUE)
 
 TRY_SPCIS_continous_study <- do.call(rbind, lapply(TRY_sps_study_trait_splits, sum_stats_study))
-                                                                               
+TRY_SPCIS_continous_study <- TRY_SPCIS_continous_study[c("spcis_try_match", "TraitNameAbr","Dataset", "StdValue")]
+
+# combine with literature data
+TRY_SPCIS_continous_study_w_lit <- rbind(TRY_lit[c("spcis_try_match", "TraitNameAbr","Dataset", "StdValue")], TRY_SPCIS_continous_study)
+
 # TRY - species-level summary statistics 
 # split dataset for summary stats 
-TRY_sps_trait_splits <- split(TRY_SPCIS_continous_study, 
-                              list(TRY_SPCIS_continous_study$spcis_try_match, 
-                                   TRY_SPCIS_continous_study$TraitNameAbr), drop = TRUE)
+TRY_sps_trait_splits <- split(TRY_SPCIS_continous_study_w_lit, 
+                              list(TRY_SPCIS_continous_study_w_lit$spcis_try_match, 
+                                   TRY_SPCIS_continous_study_w_lit$TraitNameAbr), drop = TRUE)
 
 TRY_SPCIS_trait_avgs <- do.call(rbind, lapply(TRY_sps_trait_splits, sum_stats_sps, "spcis_try_match", "TraitNameAbr", "StdValue"))
 TRY_SPCIS_trait_avgs$n_species <- 1
@@ -110,9 +169,8 @@ TRY_SPCIS_genera_avgs <- do.call(rbind, lapply(TRY_genus_df_splits, sum_stats_ge
 # full SPCIS_TRY dataset 
 TRY_all <- rbind(TRY_SPCIS_trait_avgs, TRY_SPCIS_genera_avgs)
 TRY_all$X <- NULL
-TRY_all$source <- "TRY"
+TRY_all$source <- "TRY or literature"
 TRY_all[c("mean", "sd")] <- apply(TRY_all[c("mean", "sd")], 2, function(x) round(x, 4))
-
 
 # ---------------------------------------------- fungal root  ---------------------------------------------
 # merge with SPCIS at genus-level since no species-level data are available
@@ -167,46 +225,75 @@ DH_all$source <- "SPCIS_data"
 DH_all <- lapply(DH_all, unname)
 DH_all <- as.data.frame(DH_all)
 # ---------------------------------------------- groot  ---------------------------------------------------
+
+# drop rooting depth <- to be combined with rooting depth data 
+groot_SPCIS_nodepth <- groot_SPCIS[!groot_SPCIS$traitName == "Rooting_depth",]
+
 # species-level dataset 
-groot_SPCIS <- groot_SPCIS[c("genus_species", "traitName", "meanSpecies", "entriesStudySite")]
-colnames(groot_SPCIS) <- c("sps_try_match", "TraitNameAbr", "mean", "n_studies")
-groot_SPCIS$sd <- NA
-groot_SPCIS$n_species <- 1
+groot_SPCIS_nodepth <- groot_SPCIS_nodepth[c("genus_species", "traitName", "meanSpecies", "entriesStudySite")]
+colnames(groot_SPCIS_nodepth) <- c("sps_try_match", "TraitNameAbr", "mean", "n_studies")
+groot_SPCIS_nodepth$sd <- NA
+
+groot_SPCIS_w_lit <- rbind(groot_SPCIS_nodepth, root_lit_avg)
+groot_SPCIS_w_lit$n_species <- 1
+
+# need a weighted average accounting for number of studies in groot vs root_lit
+groot_SPCIS_w_lit_splits <- split(groot_SPCIS_w_lit, list(groot_SPCIS_w_lit$sps_try_match, groot_SPCIS_w_lit$TraitNameAbr), drop = TRUE)
+
+groot_lit_all <- do.call(rbind, lapply(groot_SPCIS_w_lit_splits, groot_weighted_avg))
 
 # get genus-level estimates 
-groot_genus_sp <- as.data.frame(t(sapply(strsplit(groot_SPCIS$sps_try_match, " "), "[")))
+groot_genus_sp <- as.data.frame(t(sapply(strsplit(groot_lit_all$sps_try_match, " "), "[")))
 colnames(groot_genus_sp) <- c("Genus", "Species")
-SPCIS_groot_genus <- cbind(groot_SPCIS, groot_genus_sp)
+SPCIS_groot_genus <- cbind(groot_lit_all, groot_genus_sp)
 groot_genus_df <- SPCIS_groot_genus[c("Genus","TraitNameAbr", "mean", "n_studies")]
 
 # split dataset for summary stats (i.e., genus-level estimates)
 groot_genus_df_splits <- split(groot_genus_df, list(groot_genus_df$Genus, groot_genus_df$TraitNameAbr), drop = TRUE)
 SPCIS_groot_genera_avgs <- do.call(rbind, lapply(groot_genus_df_splits, sum_stats_genus, "Genus","TraitNameAbr", "mean", "n_studies"))
 
-# full SPCIS_TRY dataset 
-groot_all <- rbind(groot_SPCIS, SPCIS_groot_genera_avgs)
-groot_all$source <- "GRoot"
+# full GRoot dataset 
+groot_all <- rbind(groot_lit_all, SPCIS_groot_genera_avgs)
+groot_all$source <- "GRoot or literature"
 
 groot_all[c("mean", "sd")] <- apply(groot_all[c("mean", "sd")], 2, function(x) round(x, 4))
 
 # ------------------------------- rooting depth  ---------------------------------------------
-# both species and genus level values in dataset 
 
+# groot rooting depth  
+groot_depth <- groot_SPCIS[groot_SPCIS$traitName == "Rooting_depth",]
+groot_depth <- groot_depth[c("genus_species", "traitName", "meanSpecies", "entriesStudySite")]
+colnames(groot_depth) <- c("sps_try_match", "TraitNameAbr", "mean", "n_studies")
+groot_depth$TraitNameAbr <- "rootingdepth_m"
+groot_depth$sd <- NA
+
+# literature rooting depth 
+depth_lit <- depth_lit[c("species", "TraitNameAbr", "mean", "n_obs")]
+colnames(depth_lit) <- c("sps_try_match", "TraitNameAbr", "mean", "n_studies")
+depth_lit$sd <- NA
+
+# RSIP rooting depth  
 rootdepth_SPCIS$TraitNameAbr <- "rootingdepth_m"
-
-# species-level means 
 rootdepth_SPCIS$g_s <- gsub(" ", "_", rootdepth_SPCIS$Name_matched)
 rootdepth_genus_sps <- data.frame(rootdepth_SPCIS[grep("_", rootdepth_SPCIS$g_s),])
-rootdepth_genus_sps$g_s <- NULL
+rootdepth_genus_sps <- rootdepth_genus_sps[c("g_s", "Dr", "TraitNameAbr")]
+rootdepth_genus_sps$g_s <- gsub("_", " ", rootdepth_genus_sps$g_s)
+colnames(rootdepth_genus_sps) <- c("sps_try_match", "mean", "TraitNameAbr")
+rootdepth_genus_sps$sd <- NA
+rootdepth_genus_sps$n_studies <- NA
 
-# split dataset for species-level summary stats 
-rootdepth_SPCIS_splits <- split(rootdepth_genus_sps, 
-                                list(rootdepth_genus_sps$Name_matched), drop = TRUE)
+# bind together toot depth datasets 
+root_depth_all <- do.call(rbind, list(groot_depth, depth_lit, rootdepth_genus_sps))
+  
+# split RSIP dataset for species-level summary stats 
+rootdepth_SPCIS_splits <- split(root_depth_all, 
+                                list(root_depth_all$sps_try_match), drop = TRUE)
 
-SPCIS_rootdepth_max <- do.call(rbind, lapply(rootdepth_SPCIS_splits, max_root_function, "Name_matched", "Dr"))
+# ------- max rooting depth ------- #
+SPCIS_rootdepth_max <- do.call(rbind, lapply(rootdepth_SPCIS_splits, max_root_function, "sps_try_match", "mean"))
 SPCIS_rootdepth_max$mean <- gsub(Inf, NA, SPCIS_rootdepth_max$mean)
 
-# genus-level summary stats  
+# genus-level summary stats - max rooting depth  
 genus_sp <- as.data.frame(t(sapply(strsplit(SPCIS_rootdepth_max$sps_try_match, " "), "[")))
 colnames(genus_sp) <- c("Genus", "Species")
 SPCIS_depth_genus <- cbind(SPCIS_rootdepth_max, genus_sp)
@@ -217,14 +304,26 @@ genus_df$mean <- as.numeric(genus_df$mean)
 genus_df_splits <- split(genus_df, list(genus_df$Genus), drop = TRUE)
 SPCIS_depth_genera_avgs <- do.call(rbind, lapply(genus_df_splits, sum_stats_genus, "Genus", "TraitNameAbr", "mean", "n_studies"))
 
+# ------- mean rooting depth ------- #
+SPCIS_rootdepth_mean <- do.call(rbind, lapply(rootdepth_SPCIS_splits, mean_root_depth_function))
+# genus-level summary stats - mean rooting depth  
+genus_sp_mean <- as.data.frame(t(sapply(strsplit(SPCIS_rootdepth_mean$sps_try_match, " "), "[")))
+colnames(genus_sp_mean) <- c("Genus", "Species")
+SPCIS_depth_mean_genus <- cbind(SPCIS_rootdepth_mean, genus_sp)
+genus_mean_df <- SPCIS_depth_mean_genus[c("Genus", "TraitNameAbr", "mean", "n_studies")]
+genus_mean_df$mean <- as.numeric(genus_mean_df$mean)
+
+# split dataset for summary stats 
+genus_mean_df_splits <- split(genus_mean_df, list(genus_mean_df$Genus), drop = TRUE)
+SPCIS_depth_mean_genera_avgs <- do.call(rbind, lapply(genus_mean_df_splits, sum_stats_genus, "Genus", "TraitNameAbr", "mean", "n_studies"))
+
 # full rooting depth dataset 
-depth_all <- rbind(SPCIS_rootdepth_max, SPCIS_depth_genera_avgs)
-depth_all$source <- "RootDepth"
+depth_all <- do.call(rbind, list(SPCIS_rootdepth_max, SPCIS_depth_genera_avgs, SPCIS_rootdepth_mean, SPCIS_depth_mean_genera_avgs))
+depth_all$source <- "RSIP or literature"
 
 depth_all[c("mean", "sd")] <- apply(depth_all[c("mean", "sd")], 2, as.numeric)
 
 depth_all[c("mean", "sd")] <- apply(depth_all[c("mean", "sd")], 2, function(x) round(x, 4))
-
 
 # ---------------------- combine datasets (long format) -----------------------------
 
@@ -256,5 +355,5 @@ SPCIS_traits_wide <- merge(traits_cat_wide, SPCIS_traits_wide, by.x = "sps_try_m
 # drop duplicates 
 SPCIS_traits_wide <- SPCIS_traits_wide[!duplicated(SPCIS_traits_wide),]
 
-write.csv(traits_dat,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits_sumstats.csv" )
-write.csv(SPCIS_traits_wide,"/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits.csv" )
+write.csv(traits_dat, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits_sumstats.csv" )
+write.csv(SPCIS_traits_wide, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits.csv" )
