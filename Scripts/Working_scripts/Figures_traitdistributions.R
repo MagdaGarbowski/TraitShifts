@@ -288,7 +288,7 @@ root_N_mod <- mod_plot_function(mods_out$Root_N_concentration,  -0.65, 2.8) + sc
 root_P_mod <- mod_plot_function(mods_out$Root_P_concentration,  -0.65, 3.5) + scale_y_continuous(trans = "log2")
 RTD_mod <- mod_plot_function(mods_out$Root_tissue_density, -0.65, 3.5)
 root_depth_mod <- mod_plot_function(mods_out$max_rooting_depth_m, -0.65, 2.8) + scale_y_continuous(trans = "log2")
-SRL_mod <- mod_plot_function(mods_out$Specific_root_length, -0.65, 2.8) + scale_y_continuous(trans = "log2", limits = c(4, 512))
+SRL_mod <- mod_plot_function(mods_out$Specific_root_length, -0.65, 3.2) + scale_y_continuous(trans = "log2", limits = c(4, 512))
 annual_mod <- mod_plot_function(mods_out$Annual, -0.65, 4.2) + ylim(0, 1)
 woody_mod <- mod_plot_function(mods_out$Woodiness, -0.65, 4.2) + ylim(0, 1)
 

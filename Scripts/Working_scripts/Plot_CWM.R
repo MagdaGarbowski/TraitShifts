@@ -100,7 +100,7 @@ spcis_data_relcov <- do.call(rbind, spcis_data_relcov_ls)
 dat_cont <- spcis_data_relcov[!spcis_data_relcov$TraitNameAbr %in% c("Duration","Growth.Habit", "Mycorrhizal.type"),]
 dat_cont$mean <- as.numeric(dat_cont$mean)
 
-# -------------------- get relativised CWM for cont traits  -----------------------------------
+# -------------------- get relativized CWM for cont traits  -----------------------------------
 
 dat_splits <- split(dat_cont, list(dat_cont$Plot), drop = TRUE)
 
