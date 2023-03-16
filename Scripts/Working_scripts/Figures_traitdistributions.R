@@ -25,37 +25,67 @@ plot_info <- as.data.frame(fread("/Users/MagdaGarbowski 1/TraitShifts/Generated_
 # drop duplicates - these ought to be dropped sooner 
 plot_info  <- plot_info[!duplicated(plot_info),]
 
-plot_info$Trait <- ifelse(plot_info$Trait == "Duration", "Annual",
-                          ifelse(plot_info$Trait == "Growth.Habit", "Woodiness", plot_info$Trait))
+# keep only last year of plots that have multiple samplings
+plot_info_splits <- split(plot_info, plot_info$Plot)
 
-# merge the datasets 
-CWM_plot_info <- merge(CWM, plot_info, by = c("Plot", "Year", "Trait"), all.x = TRUE)
+max_year_function <- function(df){
+  max_year = max(df$Year)
+  df_out <- df[df$Year == max_year,]
+  return(df_out)
+}
 
-# drop - Inf from rooting depth 
-CWM_plot_info <- CWM_plot_info[!CWM_plot_info$CWM == -Inf,]
+plot_info_max_yrs <- do.call(rbind, lapply(plot_info_splits, max_year_function))
 
-CWM_plot_info$Inv_level <- ifelse(CWM_plot_info$I_relcov >= 66, "high", 
-                                  ifelse((CWM_plot_info$I_relcov >= 33 & CWM_plot_info$I_relcov < 66), "med", "low"))
+# get time-series dataset (for later use?)
 
-# drop ecoregions without a lot of plots 
-CWM_plot_info <- CWM_plot_info[!CWM_plot_info$EcoRegionLevelI %in% c("TAIGA", "TUNDRA", "WATER", "TROPICAL WET FORESTS"),]
+time_series_function <- function(df){
+  years = length(levels(as.factor(df$Year)))
+  if(years > 1){
+    return(df)
+  }
+}
+
+plot_info_time_series <- do.call(rbind, lapply(plot_info_splits, time_series_function))
+
+# merge the datasets and subset plots with >80% coverage by trait 
+CWM_plot_info <- merge(CWM, plot_info_max_yrs, by = c("Plot", "Year", "Trait"))
+CWM_plot_info_80 <- CWM_plot_info[CWM_plot_info$trait_cov > 80,]
+CWM_plot_info_80 <-  CWM_plot_info_80[CWM_plot_info_80$EcoRegionLevelI %in% c("EASTERN TEMPERATE FORESTS", "GREAT PLAINS", "NORTHERN FORESTS",
+                                                              "MEDITERRANEAN CALIFORNIA", "NORTH AMERICAN DESERTS", "NORTHWESTERN FORESTED MOUNTAINS"),]
+
+# ------ three datasets: full, >2% invasion plots, plots that have traits for invaders and native ------
+# all analyses will be run using these datasets 
+
+# full
+CWM_plot_info_80 <- CWM_plot_info_80[!CWM_plot_info_80$CWM == -Inf,]
+
+# 2% > invasion 
+CWM_plot_info_80_2percent <- CWM_plot_info_80[CWM_plot_info_80$I_relcov > 1.999,]
+
+# create "bins" based on plot numbers, not absolute values of invasion
+# this didn't go well because so many plots have zero invasion 
+# decided just to "eyeball" it 
+
+CWM_plot_info_80$Inv_level <- ifelse(CWM_plot_info_80$I_relcov < 2, "low", 
+                                  ifelse(CWM_plot_info_80$I_relcov >= 2 & CWM_plot_info_80$I_relcov < 20, "med", "high"))
+
+CWM_plot_info_80_2percent$Inv_level <- ifelse(CWM_plot_info_80_2percent$I_relcov < 15, "low", 
+                                           ifelse(CWM_plot_info_80_2percent$I_relcov >= 15 & CWM_plot_info_80_2percent$I_relcov < 45, "med", "high"))
+
+# ----------------------------------- density plots  -------------------------------------
 
 cb_palette <- c("#006633",  "#E69F00", "#56B4E9","#D55E00", "#F0E442","#009E73",  "#0072B2",  "#CC79A7","#999999" )
 
-CWM_plot_info_ss <- CWM_plot_info[!CWM_plot_info$I_relcov %in% c(0,100),]
-
-# ----------------------------------- plotting  -------------------------------------
 
 # split by trait 
-CWM_80_splits <- split(CWM_plot_info, CWM_plot_info$Trait)
-CWM_80_splits_ss <- split(CWM_plot_info_ss, CWM_plot_info_ss$Trait)
+CWM_80_splits <- split(CWM_plot_info_80, CWM_plot_info_80$Trait)
 
-density_plot_function <- function(df,trait, x_min, x_max){
+density_plot_function <- function(df,trait, x_min, x_max, level_labs){
   n_plots <- nrow(df)
   plot_out <- ggplot(df, aes(x = CWM, group = Inv_level, fill = Inv_level)) + 
     geom_density(adjust = 1.5, alpha = 0.5) + 
     scale_fill_manual(breaks = c("low", "med", "high"),
-                      labels = c("low (<33%)", "med (33-66%)", "high (>66%)"),
+                      labels = level_labs,
                       values = c("#999999", "#56B4E9", "#E69F00")) + 
     xlim(x_min, x_max) + 
     labs(x = trait, title = paste(trait, "\n", "n_plots =", n_plots)) + 
@@ -64,24 +94,32 @@ density_plot_function <- function(df,trait, x_min, x_max){
   return(plot_out)
 }
 
-height_veg <- density_plot_function(CWM_80_splits$heightveg_m, "Height-veg (m)", 0, 3)
-LDMC <- density_plot_function(CWM_80_splits$`LDMC_g/g`, "LDMC (g g-1)", 0, 0.6)
-leaf_area <- density_plot_function(CWM_80_splits$leafarea_mm2, "Leaf Area (mm2)", 0, 3000)
-leaf_N <- density_plot_function(CWM_80_splits$`leafN_mg/g`, "leaf_N (mg/g)", 0, 40)
-leaf_P <- density_plot_function(CWM_80_splits$`leafP_mg/g`, "leaf_P (mg/g)", 0, 4)
-seed_mass <- density_plot_function(CWM_80_splits$seedmass_mg, "seed_mass (mg)", 0, 10)
-SLA <- density_plot_function(CWM_80_splits$`SLA_mm2/mg`, "SLA (mm2 mg-1)", 0, 50)
-SSD <- density_plot_function(CWM_80_splits$`SSD_g/cm3`, "SSD", 0, 1)
-root_diam <- density_plot_function(CWM_80_splits$Mean_Root_diameter, "root_diam (mm)", 0, 1)
-RDMC <- density_plot_function(CWM_80_splits$Root_dry_matter_content, "RDMC", 0, 0.45)
-RMF <- density_plot_function(CWM_80_splits$Root_mass_fraction, "RMF", 0, 0.75)
-root_N <- density_plot_function(CWM_80_splits$Root_N_concentration, "root_N", 0, 20)
-root_P <- density_plot_function(CWM_80_splits$Root_P_concentration, "root_P", 0, 4)
-RTD <- density_plot_function(CWM_80_splits$Root_tissue_density, "RTD", 0, 0.75)
-root_depth <- density_plot_function(CWM_80_splits$max_rooting_depth_m, "max_root_depth (m)", 0, 12)
-SRL <- density_plot_function(CWM_80_splits$Specific_root_length, "SRL", 0, 175)
-woodiness <- density_plot_function(CWM_80_splits$Woodiness, "Woodiness", 0, 1)
-annual <- density_plot_function(CWM_80_splits$Annual, "Annual_prop", 0, 1)
+# size gradient
+height_veg <- density_plot_function(CWM_80_splits$heightveg_m, "Height-veg (m)", 0, 3, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+root_depth <- density_plot_function(CWM_80_splits$max_rooting_depth_m, "max_root_depth (m)", 0, 12, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+
+# leaf conservation 
+SLA <- density_plot_function(CWM_80_splits$`SLA_mm2/mg`, "SLA (mm2 mg-1)", 0, 50, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+LDMC <- density_plot_function(CWM_80_splits$`LDMC_g/g`, "LDMC (g g-1)", 0, 0.6, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+leaf_N <- density_plot_function(CWM_80_splits$`leafN_mg/g`, "leaf_N (mg/g)", 0, 40, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+leaf_P <- density_plot_function(CWM_80_splits$`leafP_mg/g`, "leaf_P (mg/g)", 0, 4, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+
+# roots - conservation and collaboration 
+root_diam <- density_plot_function(CWM_80_splits$Mean_Root_diameter, "root_diam (mm)", 0, 1, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+root_N <- density_plot_function(CWM_80_splits$Root_N_concentration, "root_N", 0, 20, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+RTD <- density_plot_function(CWM_80_splits$Root_tissue_density, "RTD", 0, 0.75, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+SRL <- density_plot_function(CWM_80_splits$Specific_root_length, "SRL", 0, 350, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+
+# other 
+seed_mass <- density_plot_function(CWM_80_splits$seedmass_mg, "seed_mass (mg)", 0, 10, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+SSD <- density_plot_function(CWM_80_splits$`SSD_g/cm3`, "SSD", 0, 1, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+RDMC <- density_plot_function(CWM_80_splits$Root_dry_matter_content, "RDMC", 0, 0.45, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+RMF <- density_plot_function(CWM_80_splits$Root_mass_fraction, "RMF", 0, 0.75, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+woodiness <- density_plot_function(CWM_80_splits$Woodiness, "Woodiness", 0, 1, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+annual <- density_plot_function(CWM_80_splits$Annual, "Annual_prop", 0, 1, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+leaf_area <- density_plot_function(CWM_80_splits$leafarea_mm2, "Leaf Area (mm2)", 0, 3000, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+root_P <- density_plot_function(CWM_80_splits$Root_P_concentration, "root_P", 0, 4, c("low (<2%)", "med (2-20%)", "high (>20%)"))
+
 
 pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/traits_overall_1.pdf", width = 10, height = 6)
 grid.arrange(height_veg, leaf_area, SSD, seed_mass, ncol = 2)
@@ -99,60 +137,7 @@ pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/traits_overall_4.
 grid.arrange(root_depth, RMF, RTD, ncol = 2)
 dev.off()
 
-# ----------------------------------- ecoregion plots  -------------------------------------
-
-density_eco_plot_function <- function(dat, trait, x_min, x_max){
-  
-  eco_splits <- split(dat, dat$EcoRegionLevelI, drop = TRUE)
-  inner_fun <- function(df){
-    n_plots <- nrow(df)
-    eco_reg <- df$EcoRegionLevelI
-    plot_out <- ggplot(df, aes(x = CWM, group = Inv_level, fill = Inv_level)) + 
-      geom_density(adjust = 1.5, alpha = 0.4) + 
-      scale_fill_manual(breaks = c("low", "med", "high"),
-                        labels = c("low (<33%)", "med (33-66%)", "high (>66%)"),
-                        values = c("#999999", "#56B4E9", "#E69F00")) + 
-      xlim(x_min, x_max) + 
-      labs(x = trait, title = paste(eco_reg, "\n",trait, "\n",  "n_plots =", n_plots)) + 
-      theme_bw() + 
-      theme(legend.position = "none",
-            title = element_text(size = 6))
-    return(plot_out)
-  }
-  plots_out <- lapply(eco_splits, inner_fun)
-  plots_print <- do.call("grid.arrange", c(plots_out, ncol = 3))
-  return(plots_print)
-}
-
-
-pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/eco_plots_aboveground.pdf")
-density_eco_plot_function(CWM_80_splits$heightveg_m, "Height_veg (m)", 0, 8)
-density_eco_plot_function(CWM_80_splits$`SSD_g/cm3`, "SSD", 0, 1)
-density_eco_plot_function(CWM_80_splits$seedmass_mg, "seed_mass (mg)", 0, 20)
-density_eco_plot_function(CWM_80_splits$leafarea_mm2, "leaf_area (mm2)", 0, 3000)
-density_eco_plot_function(CWM_80_splits$`SLA_mm2/mg`, "SLA (mm2 mg-1)", 0, 50)
-density_eco_plot_function(CWM_80_splits$`LDMC_g/g`, "LDMC (g g-1)", 0, 0.6)
-density_eco_plot_function(CWM_80_splits$`leafN_mg/g`, "leaf_N (mg/g)", 0, 40)
-density_eco_plot_function(CWM_80_splits$`leafP_mg/g`, "leaf_P (mg/g)", 0, 4)
-dev.off()
-
-pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/eco_plots_belowground.pdf")
-density_eco_plot_function(CWM_80_splits$Mean_Root_diameter, "root_diam (mm)", 0, 1)
-density_eco_plot_function(CWM_80_splits$Root_dry_matter_content, "RDMC", 0, 0.45)
-density_eco_plot_function(CWM_80_splits$Root_mass_fraction, "RMF", 0, 0.75)
-density_eco_plot_function(CWM_80_splits$Root_N_concentration, "root_N", 0, 20)
-density_eco_plot_function(CWM_80_splits$Root_P_concentration, "root_P", 0, 4)
-density_eco_plot_function(CWM_80_splits$Root_tissue_density, "RTD", 0, 0.75)
-density_eco_plot_function(CWM_80_splits$max_rooting_depth_m, "max_root_depth (m)", 0, 4)
-density_eco_plot_function(CWM_80_splits$Specific_root_length, "SRL", 0, 350)
-dev.off()
-
-pdf(file = "/Users/MagdaGarbowski 1/TraitShifts/Output_Figures/eco_proportions.pdf", width = 12, height = 10)
-woody_eco <- density_eco_plot_function(CWM_80_splits$Woodiness, "Woodiness", 0, 1)
-annual_eco <- density_eco_plot_function(CWM_80_splits$Annual, "Annual", 0, 1)
-dev.off()
-
-# --------------------------------- model plots -------------------------------------
+# --------------------------------- models -------------------------------------
 
 mod_function <-function(dat){
   dat <- dat[!is.na(dat$EcoRegionLevelI),]
@@ -178,88 +163,83 @@ mod_function <-function(dat){
   return(ls)
 }
 
-mods_out <- lapply(CWM_80_splits, mod_function)
 
 height_mod <- mod_function(CWM_80_splits$heightveg_m)
-leaf_N_mod <- mod_function(CWM_80_splits$`leafN_mg/g`)
-root_diam <- mod_function(CWM_80_splits$Mean_Root_diameter)
-RTD <- mod_function(CWM_80_splits$Root_tissue_density)
 root_depth <- mod_function(CWM_80_splits$max_rooting_depth_m)
+
 SLA_mod <- mod_function(CWM_80_splits$`SLA_mm2/mg`)
+LDMC_mod <- mod_function(CWM_80_splits$`LDMC_g/g`)
+leaf_N_mod <- mod_function(CWM_80_splits$`leafN_mg/g`) # boundary fit singular 
+leaf_P_mod <- mod_function(CWM_80_splits$`leafP_mg/g`)
 
+root_diam_mod <- mod_function(CWM_80_splits$Mean_Root_diameter)
+RTD_mod <- mod_function(CWM_80_splits$Root_tissue_density)
+root_N_mod <- mod_function(CWM_80_splits$Root_N_concentration)
+SRL_mod <- mod_function(CWM_80_splits$Specific_root_length)
 
-# Need to correct this for log vs. not log traits 
-mod_plot_function <- function(ls, xmin, xmax){
+# ----------------------------------- model plots  -------------------------------------
+
+mod_plot_function <- function(ls){
   
-    # data for plot 
+  # data for plot 
   df = ls[[1]]
   R2_marginal <- ls[[2]]
   R2_conditional <- ls[[3]]
   mod = ls[[4]]
   trait = df$Trait[[1]]
   
-  new_dat <- expand.grid(I_relcov_scaled = seq(xmin,xmax,0.2), 
-                         EcoRegionLevelI = c(levels(as.factor(df$EcoRegionLevelI))))
-  predicted_dat <- predictInterval(mod, new_dat, n.sims = 999)
-  main <- predictInterval(mod, which = "fixed", newdata = new_dat, level = 0.95, n.sims = 999)
+  xmin = min(df$I_relcov_scaled)
+  xmax = max(df$I_relcov_scaled)
   
+  # effects coeffs
+  coeffs_rand <- coef(mod)$EcoRegionLevelI
+  coeffs_rand$EcoRegionLevelI <- rownames(coeffs_rand)
+  coeffs_mod <- summary(mod)$coefficients
+  
+  # new data for predictions
+  new_dat <- expand.grid(I_relcov_scaled = seq(xmin,xmax,0.00025), 
+                         EcoRegionLevelI = c(levels(as.factor(df$EcoRegionLevelI))))
+
+  predict_int <- predictInterval(mod, new_dat, n.sims = 2000,
+                                   stat = "median",
+                                   type = "linear.prediction",
+                                   which = "fixed",
+                                   include.resid.var = TRUE)
+
   # data from model 
   if(trait == "SLA_mm2/mg"| trait == "heightveg_m" | trait == "leafP_mg/g" | 
      trait == "leafarea_mm2" | trait == "leafN_mg/g" | trait == "max_rooting_depth_m"| 
      trait == "Mean_Root_diameter" | trait == "Root_N_concentation"| trait =="Specific_root_length"){
     predicted_dat_exp <- exp(predicted_dat)
-    out <- cbind(new_dat, predicted_dat_exp)
-    exp_main <- exp(main)
-    out_2 <- cbind(out, exp_main)
+    out <- cbind(new_dat, predict_int)
   }
   
   if(trait != "SLA_mm2/mg"& trait != "heightveg_m" & trait != "leafP_mg/g" & 
      trait != "leafarea_mm2" & trait != "leafN_mg/g" & trait != "max_rooting_depth_m"& 
      trait != "Mean_Root_diameter" & trait != "Root_N_concentation"& trait !="Specific_root_length"){
-    out_2 <- do.call(cbind, list(new_dat, predicted_dat, main))
+    out <- do.call(cbind, list(new_dat, predict_int))
   }
   
-  colnames(out_2)[6:8] <- c("fit_main", "fit_upr", "fit_lwr")
-  
-  # lm to smooth out prediction bands
-  pred_interval_mod_upper <- lm(fit_upr ~ I_relcov_scaled, data = out_2) 
-  pred_interval_mod_lwr <- lm(fit_lwr ~ I_relcov_scaled, data = out_2) 
-  
-  pred_upr_dat <- predict(pred_interval_mod_upper, new_dat)
-  pred_lwr_dat <- predict(pred_interval_mod_lwr, new_dat)
-  pred_interval_dat <- do.call(cbind, list(new_dat, pred_upr_dat, pred_lwr_dat))
-  colnames(pred_interval_dat)[3:4] <- c("fit_upr", "fit_lower")
-  
-  # plotting raw CWM values (i.e., not logged) but models estimates that used log data 
-  # resulting plot looks like sh*t 
-  
-  cb_palette <- c("#006633",  "#E69F00", "#56B4E9","#D55E00", "#F0E442","#009E73",  "#0072B2",  "#CC79A7","#999999" )
-  
-plot <- ggplot() +
+  plot <- ggplot() +
     geom_point(data = df, aes(x = I_relcov_scaled, y = CWM, fill = EcoRegionLevelI, color = EcoRegionLevelI), alpha = 0.2) +
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "EASTERN TEMPERATE FORESTS",], 
-                aes(x = I_relcov_scaled, y = fit), color = "#006633", method = "lm", se = FALSE) +
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "GREAT PLAINS",], 
-                aes(x = I_relcov_scaled, y = fit), color = "#E69F00", method = "lm", se = FALSE) +
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "MARINE WEST COAST FOREST",], 
-                aes(x = I_relcov_scaled, y = fit), color = "#56B4E9", method = "lm", se = FALSE) + 
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "MEDITERRANEAN CALIFORNIA",], 
-                aes(x = I_relcov_scaled, y = fit), color = "#D55E00", method = "lm", se = FALSE) +
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "NORTH AMERICAN DESERTS" ,], 
-                aes(x = I_relcov_scaled, y = fit), color = "#F0E442", method = "lm", se = FALSE) +
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "NORTHERN FORESTS",], 
-                aes(x = I_relcov_scaled, y = fit), color = "#009E73", method = "lm", se = FALSE) + 
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "NORTHWESTERN FORESTED MOUNTAINS",], 
-                aes(x = I_relcov_scaled, y = fit), color = "#56B4E9", method = "lm", se = FALSE) + 
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "SOUTHERN SEMIARID HIGHLANDS",], 
-                aes(x = I_relcov_scaled, y = fit), color = "#CC79A7", method = "lm", se = FALSE) +
-    geom_smooth(data = out_2[out_2$EcoRegionLevelI == "TEMPERATE SIERRAS",], 
-                aes(x = I_relcov_scaled, y = fit), color = "#999999", method = "lm", se = FALSE) +
-    geom_ribbon(data = pred_interval_dat, aes(x = I_relcov_scaled, ymin = fit_lower, ymax = fit_upr), alpha = 0.1) +  
-    geom_smooth(data = out_2, aes(x = I_relcov_scaled, y = fit_main), color = "black", linewidth = 1.5, method = "lm") + 
+    geom_abline(slope = coeffs_rand[coeffs_rand$EcoRegionLevelI =="EASTERN TEMPERATE FORESTS",]$I_relcov_scaled, 
+                intercept = (coeffs_rand[coeffs_rand$EcoRegionLevelI =="EASTERN TEMPERATE FORESTS",]$`(Intercept)`), color = "#006633", linewidth = 1) + 
+    geom_abline(slope = coeffs_rand[coeffs_rand$EcoRegionLevelI =="GREAT PLAINS",]$I_relcov_scaled, 
+                intercept = (coeffs_rand[coeffs_rand$EcoRegionLevelI =="GREAT PLAINS",]$`(Intercept)`), color = "#E69F00", linewidth = 1)  +
+    geom_abline(slope = coeffs_rand[coeffs_rand$EcoRegionLevelI =="MEDITERRANEAN CALIFORNIA",]$I_relcov_scaled, 
+                intercept = (coeffs_rand[coeffs_rand$EcoRegionLevelI =="MEDITERRANEAN CALIFORNIA",]$`(Intercept)`), color = "#F0E442", linewidth = 1)  +
+    geom_abline(slope = coeffs_rand[coeffs_rand$EcoRegionLevelI =="NORTH AMERICAN DESERTS",]$I_relcov_scaled, 
+                intercept = (coeffs_rand[coeffs_rand$EcoRegionLevelI =="NORTH AMERICAN DESERTS",]$`(Intercept)`), color = "#D55E00", linewidth = 1)  +
+    geom_abline(slope = coeffs_rand[coeffs_rand$EcoRegionLevelI =="NORTHERN FORESTS",]$I_relcov_scaled, 
+                intercept = (coeffs_rand[coeffs_rand$EcoRegionLevelI =="NORTHERN FORESTS",]$`(Intercept)`), color = "#009E73", linewidth = 1)  +
+    geom_abline(slope = coeffs_rand[coeffs_rand$EcoRegionLevelI =="NORTHWESTERN FORESTED MOUNTAINS",]$I_relcov_scaled, 
+                intercept = (coeffs_rand[coeffs_rand$EcoRegionLevelI =="NORTHWESTERN FORESTED MOUNTAINS",]$`(Intercept)`), color = "#56B4E9", linewidth = 1)  +
+    geom_abline(slope = coeffs_mod[2], intercept = coeffs_mod[1], color = "black", linewidth = 1.5) +   
+    geom_ribbon(data = out, aes(x = I_relcov_scaled, ymin = lwr, ymax = upr), alpha = 0.2) + 
     labs(title = paste(df$Trait[1], "\n", "R2_m =", R2_marginal,"; R2_c =", R2_conditional),
          x = "Scaled invasion level", y = paste(df$Trait[1], "(CWM)")) +
     theme_bw() + 
+    scale_x_continuous(limits = c(xmin, xmax), expand = c(0,0))+
     scale_fill_manual(values = cb_palette) + 
     scale_color_manual(values = cb_palette) + 
     theme(legend.position = "none", 
@@ -267,14 +247,13 @@ plot <- ggplot() +
           legend.spacing.y = unit(0.15, "cm"),
           legend.title = element_blank()) + 
     guides(fill = guide_legend(nrow = 3, byrow = TRUE), 
-           color = guide_legend(override.aes = list(alpha = 1)))
+           color = guide_legend(override.aes = list(alpha = 1))) + scale_y_continuous(trans = "log2")
   plot
-
-  return(plot)
+return(plot)
 }
 
-height_mod <- mod_plot_function(mods_out$heightveg_m, -0.65, 3.6) + scale_y_continuous(trans = "log2") 
-LDMC_mod <- mod_plot_function(mods_out$`LDMC_g/g`, -0.65, 2.8)
+height_mod <- mod_plot_function(height_mod) + scale_y_continuous(trans = "log2") 
+LDMC_mod <- mod_plot_function(LDMC_mod)
 leaf_area_mod <- mod_plot_function(mods_out$leafarea_mm2, -0.65, 3.6) + scale_y_continuous(trans = "log2")
 leaf_N_mod <- mod_plot_function(mods_out$`leafN_mg/g`, -0.65, 3.6) + scale_y_continuous(trans = "log2")
 leaf_P_mod <- mod_plot_function(mods_out$`leafP_mg/g`, -0.65, 3.6) + scale_y_continuous(trans = "log2")
