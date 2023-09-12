@@ -2,6 +2,15 @@
 # goal: get species-level and genus-level averages for traits 
 # goal: combine trait databases 
 
+
+# Notes to remember what is being done here: 
+# averages for traits: first take study-level (dataset in TRY) average, then take average of these averages 
+# I am doing this to "match" data from aggregate sources (i.e., literature, GRoot)
+# for max height and max rooting depth: 
+# ALL values from TRY are used, aggregate values from the literature or GRoot are used and the 97.5 quantile is calculated
+# This may be biasing values towards TRY since so many more come from that database 
+# n studies for these values reflect number of observations, not studies 
+
 TRY_SPCIS <- read.csv ("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022_TRY_22398.csv")
 fungal_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/fungalroot_SPCIS.csv")
 groot_SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/groot_SPCIS.csv")
@@ -69,6 +78,16 @@ groot_weighted_avg <- function(df){
   return(out)
 }
 
+max_height_function <- function(df, species_col, value){
+  out <- data.frame(sps_try_match = df[[species_col]][1],
+                    TraitNameAbr = "max_heightveg_m", 
+                    mean = max(df[[value]], na.rm = TRUE), 
+                    sd = NA,
+                    n_studies = nrow(df),
+                    n_species = 1)
+  return(out)
+}
+
 max_root_function <- function(df, species_col, value){
   out <- data.frame(sps_try_match = df[[species_col]][1],
                     TraitNameAbr = "max_rooting_depth_m", 
@@ -77,6 +96,28 @@ max_root_function <- function(df, species_col, value){
                     n_studies = nrow(df),
                     n_species = 1)
   return(out)
+}
+
+max_height_function_2 <- function(df, species_col){
+  quantile_975 <- quantile(df[["StdValue"]], probs = c(0.975))
+  df_out <- data.frame(sps_try_match = df[[species_col]][1],
+                       TraitNameAbr = "max_975_heightveg_m", 
+                       mean = quantile_975, 
+                       sd = NA,
+                       n_studies = nrow(df),
+                       n_species = 1)
+  return(df_out)
+}
+
+max_root_function_2 <- function(df, species_col){
+  quantile_975 <- quantile(df[["mean"]], probs = c(0.975))
+  df_out <- data.frame(sps_try_match = df[[species_col]][1],
+                       TraitNameAbr = "max_975_rootdepth_m", 
+                       mean = quantile_975, 
+                       sd = NA,
+                       n_studies = nrow(df),
+                       n_species = 1)
+  return(df_out)
 }
 
 mean_root_depth_function <- function(df){
@@ -111,7 +152,7 @@ depth_lit <- literature_study[literature_study$TraitNameAbr %in% c("max_rooting_
 root_lit_splits <- split(root_lit, list(root_lit$species, root_lit$TraitNameAbr), drop = TRUE)
 root_lit_avg <- do.call(rbind, lapply(root_lit_splits, sum_stats_sps, "species", "TraitNameAbr", "mean"))
 
-# ---------------------------------------------- TRY  -------------------------------------------------------
+# ---------------------------------------------- TRY -------------------------------------------------------
 # make columns match other datasets 
 colnames(TRY_lit) <- c("spcis_try_match", "TraitNameAbr","Dataset", "StdValue")
 
@@ -153,6 +194,20 @@ TRY_sps_trait_splits <- split(TRY_SPCIS_continous_study_w_lit,
 
 TRY_SPCIS_trait_avgs <- do.call(rbind, lapply(TRY_sps_trait_splits, sum_stats_sps, "spcis_try_match", "TraitNameAbr", "StdValue"))
 TRY_SPCIS_trait_avgs$n_species <- 1
+
+# ---------------------------------------------- TRY & literature - MAX height  -------------------------------------------------------
+
+TRY_lit <- rbind(TRY_lit[c("spcis_try_match", "TraitNameAbr","Dataset", "StdValue")], 
+                 TRY_SPCIS_continous[c("spcis_try_match", "TraitNameAbr","Dataset", "StdValue")])
+
+TRY_lit_veg_height <- TRY_lit[TRY_lit$TraitNameAbr == "heightveg_m",]
+
+TRY_lit_veg_height_splits <- split(TRY_lit_veg_height,list(TRY_lit_veg_height$spcis_try_match), drop = TRUE)
+
+TRY_lit_veg_height_max <- do.call(rbind, lapply(TRY_lit_veg_height_splits, max_height_function_2, "spcis_try_match"))
+
+# bind max height with species avgs
+TRY_SPCIS_trait_avgs <- rbind(TRY_SPCIS_trait_avgs, TRY_lit_veg_height_max)
 
 # TRY - genus-level summary statistics 
 TRY_genus_sp <- as.data.frame(t(sapply(strsplit(TRY_SPCIS_trait_avgs$sps_try_match, " "), "[")))
@@ -282,16 +337,18 @@ colnames(rootdepth_genus_sps) <- c("sps_try_match", "mean", "TraitNameAbr")
 rootdepth_genus_sps$sd <- NA
 rootdepth_genus_sps$n_studies <- NA
 
-# bind together toot depth datasets 
+# bind together root depth datasets 
 root_depth_all <- do.call(rbind, list(groot_depth, depth_lit, rootdepth_genus_sps))
+
+# remove NAs 
+root_depth_all <- root_depth_all[!is.na(root_depth_all$mean),]
   
 # split RSIP dataset for species-level summary stats 
 rootdepth_SPCIS_splits <- split(root_depth_all, 
                                 list(root_depth_all$sps_try_match), drop = TRUE)
 
 # ------- max rooting depth ------- #
-SPCIS_rootdepth_max <- do.call(rbind, lapply(rootdepth_SPCIS_splits, max_root_function, "sps_try_match", "mean"))
-SPCIS_rootdepth_max$mean <- gsub(Inf, NA, SPCIS_rootdepth_max$mean)
+SPCIS_rootdepth_max <- do.call(rbind, lapply(rootdepth_SPCIS_splits, max_root_function_2, "sps_try_match"))
 
 # genus-level summary stats - max rooting depth  
 genus_sp <- as.data.frame(t(sapply(strsplit(SPCIS_rootdepth_max$sps_try_match, " "), "[")))
@@ -319,7 +376,7 @@ SPCIS_depth_mean_genera_avgs <- do.call(rbind, lapply(genus_mean_df_splits, sum_
 
 # full rooting depth dataset 
 depth_all <- do.call(rbind, list(SPCIS_rootdepth_max, SPCIS_depth_genera_avgs, SPCIS_rootdepth_mean, SPCIS_depth_mean_genera_avgs))
-depth_all$source <- "RSIP or literature"
+depth_all$source <- "GRoot, RSIP, literature"
 
 depth_all[c("mean", "sd")] <- apply(depth_all[c("mean", "sd")], 2, as.numeric)
 

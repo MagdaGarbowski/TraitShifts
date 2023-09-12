@@ -3,6 +3,7 @@
 
 SPCIS_traits <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_traits_sumstats.csv")
 SPCIS <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022.csv")
+basal_dat <- read.csv("/Users/MagdaGarbowski 1/TraitShifts/Data/SPCIS_BA_plots_08102023.csv") # need to drop these plots because canopy based on basal area
 
 SPCIS_traits$X <- NULL
 SPCIS$X <- NULL
@@ -62,11 +63,11 @@ coverage_function <- function(df){
 
 # ---------------------------------- subset trait data  -----------------------------------------------
 SPCIS_traits <- SPCIS_traits[SPCIS_traits$TraitNameAbr %in% c("Duration", "Growth.Habit", "Fine_root_mass_leaf_mass_ratio",
-                                                              "heightveg_m", "LDMC_g/g", "leafarea_mm2", "leafN_mg/g",
+                                                              "heightveg_m", "max_975_heightveg_m", "LDMC_g/g", "leafarea_mm2", "leafN_mg/g",
                                                               "leafP_mg/g", "Mean_Root_diameter", "Mycorrhizal.type",
                                                               "Root_dry_matter_content","Root_mass_fraction", "Root_N_concentration",
                                                               "Root_P_concentration", "Root_tissue_density","Rooting_depth","Specific_root_length",
-                                                              "max_rooting_depth_m","mean_rooting_depth_m", "seedmass_mg","SLA_mm2/mg","SSD_g/cm3"),]
+                                                              "max_975_rootdepth_m","mean_rooting_depth_m", "seedmass_mg","SLA_mm2/mg","SSD_g/cm3"),] 
 
 # -------------------------- simplify datasets and run through functions  ----------------------------
 
@@ -106,5 +107,5 @@ coverage_out <- do.call(rbind, coverage_out_ls)
 coverage_out_2 <- merge(coverage_out, nat_int_df, by = c("Plot", "Zone", "Year"), all.x = TRUE)
 coverage_out_3 <- merge(coverage_out_2, plot_data, by = c("Plot", "Zone", "Year"), all.x = TRUE)
 
-write.csv(coverage_out_3, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TRY_coverage.csv")
-write.csv(spcis_data_w_try, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022_wtraits.csv")
+write.csv(coverage_out_3, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TRY_coverage_2.csv")
+write.csv(spcis_data_w_try, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022_wtraits_2.csv")

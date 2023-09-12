@@ -4,6 +4,7 @@
 # note: this script takes over an hour to run
 # note: after being cleaned, TRY data needs to be broken up into batches to run through TNRS
 # resulting datasets: 
+
 # (1) fungalroot, groot, root_depth datasets of SPCIS species 
 # (2) simplified and cleaned TRY dataset (traits only with simplified AccSpeciesNames and SpeciesNames)
 # (3) TRY species list from (2) with associated TNRS matched names
@@ -11,18 +12,15 @@
 # (5) SPCIS "AcceptedTaxonName" species list from (4) with associated TNRS matched names 
 
 # ------------------------------- packages ---------------------------------------------------
-
 install.packages("remotes")
 remotes::install_github("EnquistLab/RTNRS")
 library(data.table)
-library(TNRS)
 library(stringr)
 
 # --------------------------------- data ------------------------------------------------------
 
-TRY_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/TRY_22398.txt", 
-                  select = c("SpeciesName", "AccSpeciesName", "AccSpeciesID", "ObservationID", "DatasetID", "Dataset",
-                             "ObsDataID","TraitID", "TraitName", "OrigValueStr", "StdValue", "UnitName", "ErrorRisk"), quote = "")
+TRY_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/TRY_22398.txt", select = c("SpeciesName", "AccSpeciesName", "AccSpeciesID", "ObservationID", "DatasetID", "Dataset",
+                             "ObsDataID","TraitID", "TraitName", "OrigValueStr", "StdValue", "UnitName", "ErrorRisk", quote = ""))
 
 fungalroot_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/fungal_root.csv") # tab three of full database (nph16569-sup-0002-tabless1-s4.xlsx)
 
@@ -32,6 +30,7 @@ rootdepth_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/rooting_depth.
                         select = c("ID", "Species", "Dr", "Reference"))
 
 spcis_data <- fread("/Users/MagdaGarbowski 1/TraitShifts/Data/FULLDatabase_10272022.csv")
+
 
 # ------------------------------- functions for TNRS -------------------------------------------
 
@@ -69,8 +68,8 @@ spcis_names_prepped <- TNRS_data_prep(spcis_data, "AcceptedTaxonName")
 
 # SPCIS 
 # takes about 5 minutes 
-spcis_names_TNRS  <- TNRS(spcis_names_prepped,
-                          sources = c("usda", "tropicos", "wcvp", "wfo"), mode = "resolve", matches = "best")
+spcis_names_TNRS_1  <- TNRS::TNRS(spcis_names_prepped,
+                          sources = c("wcvp", "wfo"), mode = "resolve", matches = "best")
 
 # ----------------------------- SPCIS Duration and Growth.Habit  --------------------------------------
 

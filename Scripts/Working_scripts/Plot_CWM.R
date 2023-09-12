@@ -5,10 +5,10 @@ library(data.table)
 
 # ------------------------------- data ---------------------------------------------
 
-dat <- as.data.frame(fread("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022_wtraits.csv", 
+dat <- as.data.frame(fread("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_10272022_wtraits_3.csv", 
              select = c("AcceptedTaxonName", "Plot", "Year", "NativeStatus", "PctCov_100", "rel_100", "TraitNameAbr", "mean")))
 
-coverage <- as.data.frame(fread("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TRY_coverage.csv"))
+coverage <- as.data.frame(fread("/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_TRY_coverage_3.csv"))
 
 # ------------------------------- functions ---------------------------------------------
 
@@ -158,4 +158,4 @@ dat_Myco <- dat[dat$TraitNameAbr == "Mycorrhizal.type",]
 # -------------------------------- write csv ---------------------------------------------------
 CWM_out_all <- do.call(rbind, list(CWM_out_df, woody_prop_df, annual_prop_df))
 
-write.csv(CWM_out_all, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_CWM.csv")
+write.csv(CWM_out_all, "/Users/MagdaGarbowski 1/TraitShifts/Generated_Data/SPCIS_CWM_1.csv")
